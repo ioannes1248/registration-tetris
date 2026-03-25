@@ -17,8 +17,26 @@ const Login = () => {
         <input type="password" placeholder="비밀번호" style={inputStyle} />
         <button type="submit">로그인</button>
       </form>
+      <div style={linkContainerStyle}>
+        <span onClick={() => navigate('/register')} style={linkStyle}>회원가입</span>
+        <span onClick={() => navigate('/find-id')} style={linkStyle}>아이디 찾기</span>
+        <span onClick={() => navigate('/find-password')} style={linkStyle}>비밀번호 찾기</span>
+      </div>
     </div>
   )
+}
+
+const linkContainerStyle = {
+  display: 'flex',
+  gap: '15px',
+  marginTop: '20px',
+  fontSize: '14px'
+}
+
+const linkStyle = {
+  cursor: 'pointer',
+  textDecoration: 'underline',
+  color: '#007bff'
 }
 
 const containerStyle = {
