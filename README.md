@@ -6,17 +6,7 @@
 
 ## 시작하기
 
-### 1. 의존성 설치
-```bash
-npm install
-```
-
-### 2. 개발 서버 실행
-```bash
-npm run dev
-```
-
-### 3. 페이지 구성
+### 1. 페이지 구성
 - `/`: 인트로 페이지 (`Intro.jsx`)
 - `/login`: 로그인 페이지 (`Login.jsx`)
 - `/main`: 메인 대시보드 (`Main.jsx`)
