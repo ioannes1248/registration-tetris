@@ -80,6 +80,13 @@ export default function Login() {
     const access_token = params.get('access_token')
     const refresh_token = params.get('refresh_token')
     
+    // [신규 추가] 추출이 끝났으면 브라우저 주소창에 지저분하게 남아있는 토큰 및 에러 찌꺼기 문자열 완전히 삭제
+    // 이 처리를 안 해주면 뒤로가기나 로그아웃 시 옛날 URL의 파라미터가 재실행되어 Auth session missing 에러를 냅니다.
+    if (window.location.search || window.location.href.includes('?')) {
+      const cleanHash = window.location.hash.split('?')[0] // 해시 뒤에 붙은 것도 제거
+      window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
+    }
+    
     // 흐름도 2-A: 토큰 직접 파싱 및 하이재킹 (HashRouter 에러 방지용 패치)
     if (access_token && refresh_token) {
       supabase.auth.setSession({ access_token, refresh_token }).then(({ data, error }) => {

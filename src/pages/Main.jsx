@@ -42,7 +42,7 @@ const Main = () => {
       if (session?.user) {
         setUserEmail(session.user.email) // 세션이 있으면 이메일을 화면 변수에 저장 (렌더링 준비)
       } else {
-        navigate('/login', { replace: true }) // 비로그인 시 로그인 페이지로 강제 반송
+        navigate('/', { replace: true }) // 비로그인 시 인트로 페이지로 강제 반송
       }
       setLoading(false) // 보안 검사가 끝났으므로 로딩 화면 해제
     }
@@ -53,7 +53,7 @@ const Main = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // 다른 브라우저 탭에서 로그아웃을 누르거나 세션 만료 시 즉시 작동
       if (event === 'SIGNED_OUT' || !session) {
-        navigate('/login', { replace: true })
+        navigate('/', { replace: true })
       } else if (session?.user) {
         setUserEmail(session.user.email)
       }
