@@ -4,42 +4,45 @@ import { supabase } from '../supabaseClient'
 
 /**
  * =========================================================
- * [Login.jsx 컴포넌트 흐름도]
+ * [Login.jsx 컴포넌트 동작 흐름도]
  * 
  * 1. URL 파라미터 파싱 (getSearchParams)
- *    : 기존 탭 통째 복사, 새 탭 오픈 등 다양한 환경에서 에러나 인증 토큰을 
- *      놓치지 않기 위해 window.__RAW_URL__ 또는 현재 URL을 분석합니다.
+ *    : urlBackup.js에서 정돈해 준 깨끗한 실제 쿼리 스트링(window.location.search) 및 해시를 읽어
+ *      이메일 인증용 토큰(token_hash)이나 접근 에러(error)를 안전하게 파악합니다.
  * 
- * 2. 컴포넌트 마운트 및 useEffect 실행 (자동 인증 및 리다이렉트 처리)
+ * 2. 컴포넌트 마운트 및 useEffect 실행 (자동 인증 및 방어 로직)
  *    │
- *    ├──▶ A. 토큰(access_token)이 URL에 존재하는가? (HashRouter 더블 해시 환경)
- *    │         ├─ Yes ➔ 수동으로 강제 세션 설정(setSession) ➔ 성공 시 즉시 /main 이동
+ *    ├──▶ [URL 청소기 구동] 방금 파싱한 URL 찌꺼기를 즉각 브라우저 주소창에서 삭제
+ *    │         ➔ (이후 로그아웃 시 옛날 URL의 에러 창이 또 뜨는 무한 잔상 버그를 원천 차단)
+ *    │
+ *    ├──▶ A. 은닉된 인증 토큰(access_token)이 존재하는가? (Implicit 흐름 예외 처리)
+ *    │         ├─ Yes ➔ 강제 세션 설정(setSession) ➔ 성공 시 즉시 /main 이동
  *    │         └─ No  ➔ (다음 단계로 진행)
  *    │
- *    ├──▶ B. 매직 링크 이메일 검증(token_hash)으로 유입되었는가?
- *    │         ├─ Yes ➔ 서버에 OTP 토큰 검증(verifyOtp) 요청 ➔ 성공 시 즉시 /main 이동
+ *    ├──▶ B. 매직 링크 검증용 토큰(token_hash)이 존재하는가?
+ *    │         ├─ Yes ➔ 서버에 검증(verifyOtp) 요청 ➔ 성공 시 즉시 /main 이동 (실패 시 에러 화면)
  *    │         └─ No  ➔ (다음 단계로 진행)
  *    │
- *    └──▶ C. 기존에 과거 로그인해 둔 흔적(세션)이 브라우저에 남아있는가?
- *              ├─ Yes ➔ 즉시 /main 이동 (불필요한 로그인 폼 노출 방지)
- *              └─ No  ➔ 백그라운드에서 인증 상태 감시자 가동 (onAuthStateChange)
+ *    └──▶ C. 로컬 브라우저에 이미 유효한 로그인 세션 정보가 살아있는가?
+ *              ├─ Yes ➔ 즉시 /main 이동 (불필요한 로그인 폼 노출 구간 자동 스킵)
+ *              └─ No  ➔ 백그라운드용 인증 상태 감시자 가동 (onAuthStateChange)
  * 
  * 3. 폼 제출 이벤트 처리 (handleLogin)
- *    : 유저가 자신이 사용할 이메일을 치고 "로그인" 버튼을 클릭했을 때 실행됩니다.
+ *    : 사용자가 이메일을 입력하고 "로그인" 버튼을 눌렀을 때의 동작입니다.
  *    │
- *    ├──▶ 이메일 형태가 @cku.ac.kr로 끝나는가?
- *    │         ├─ 기각 ➔ 경고창(alert) 띄우고 종료
- *    │         └─ 통과 ➔ Supabase에 이메일 매직 링크 발송 요청 (signInWithOtp)
+ *    ├──▶ 이메일 형태가 지정된 제휴 주소(@cku.ac.kr) 소속인가?
+ *    │         ├─ 기각 ➔ 폼 하단에 빨간색 경고 텍스트 에러 조용히 노출 및 중단
+ *    │         └─ 통과 ➔ Supabase 서버에 즉각적인 매직 링크 이메일 발송 요청
  *    │
- *    └──▶ 이메일 발송 결과 
- *              ├─ 실패 ➔ 실패 사유 에러 팝업
- *              └─ 성공 ➔ linkSent 상태를 true로 변경하여 화면 전환 (View 2)
+ *    └──▶ 이메일 발송 결과 수신
+ *              ├─ 실패 ➔ (예: 60초 대기 제한 등) 폼 하단에 빨간색 텍스트(loginFormError) 부드럽게 노출
+ *              └─ 성공 ➔ linkSent 상태값을 true로 변경하여 안내 화면(View 2)으로 전환
  * 
- * 4. 현재 상태에 따른 조건부 화면 렌더링 (View 분기)
+ * 4. 현재 렌더링 상태에 따른 조건부 화면 노출 (View 분기)
  *    │
- *    ├──▶ (에러 상태인가?) ➔ View 1: "인증 실패" 에러 창과 뒤로가기 버튼
- *    ├──▶ (링크 발송인가?) ➔ View 2: "메일을 확인해주세요!" 안내창 및 구글 메일 숏컷 버튼
- *    └──▶ (아무일도 없음)  ➔ View 3: [기본 상태] 이메일 입력 폼 노출
+ *    ├──▶ (오래된 토큰 재사용 등 치명적 인증 에러 시) ➔ View 1: "인증 실패" 에러 전용 창
+ *    ├──▶ (매직 링크를 정상적으로 발송했을 때)         ➔ View 2: "메일함 열어보기" 안내 화면
+ *    └──▶ (아무일도 없는 가장 평범한 최초 접속 상태)  ➔ View 3: 이메일 폼 로그인 입력 화면
  * =========================================================
  */
 export default function Login() {
@@ -51,15 +54,11 @@ export default function Login() {
 
   // 흐름도 1: URL 파라미터 파싱
   const getSearchParams = () => {
-    const href = window.__RAW_URL__ || window.location.href
-    let search = ''
-    
-    if (href.includes('?')) {
-      search = href.substring(href.indexOf('?'))
-    } else if (href.includes('error=')) {
-      search = '?' + href.substring(href.indexOf('error='))
-    } else if (href.includes('access_token=')) {
-      search = '?' + href.substring(href.indexOf('access_token='))
+    // 💡 urlBackup.js를 통해 찌꺼기 URL이 모두 올바른 규격으로 정돈되었으므로,
+    // 잔상 버그가 생기기 쉬운 과거 __RAW_URL__ 대신 현재 브라우저의 실제 주소에서만 파싱합니다.
+    let search = window.location.search
+    if (!search && window.location.hash.includes('?')) {
+      search = '?' + window.location.hash.split('?')[1]
     }
     return new URLSearchParams(search)
   }
@@ -70,6 +69,7 @@ export default function Login() {
   // 흐름도 4번을 제어하기 위한 렌더링 상태값
   const [authError, setAuthError] = useState(initialError) 
   const [linkSent, setLinkSent] = useState(false)
+  const [loginFormError, setLoginFormError] = useState('') // [신규] 폼 제출 시 발생하는 인라인 에러 (60초 제한 등)
 
   // 흐름도 2: 각종 인증 과정 (토큰, 세션 감지) 및 로그인 뷰 자동 스킵 훅
   useEffect(() => {
@@ -111,10 +111,8 @@ export default function Login() {
           if (error) {
             setAuthError(error.message)
           } else {
-            const unhashedPath = window.location.hash.includes('?') 
-              ? window.location.hash.split('?')[0] 
-              : window.location.hash.split('#')[0]
-            window.history.replaceState({}, document.title, window.location.pathname + unhashedPath)
+            const cleanHash = window.location.hash.split('?')[0]
+            window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
             
             navigate('/main', { replace: true })
           }
@@ -145,10 +143,11 @@ export default function Login() {
   // 흐름도 3: 로그인 폼 제출 시 매직 링크 발송 처리 이벤트
   const handleLogin = async (event) => {
     event.preventDefault()
+    setLoginFormError('') // 기존 에러 초기화
     
     // 도메인 제한: @cku.ac.kr로 입력했는지 확인
     if (!email.endsWith('@cku.ac.kr')) {
-      alert('가톨릭관동대학교 이메일(@cku.ac.kr)만 사용할 수 있습니다.')
+      setLoginFormError('가톨릭관동대학교 이메일(@cku.ac.kr)만 사용할 수 있습니다.')
       return
     }
 
@@ -163,7 +162,8 @@ export default function Login() {
     })
     
     if (error) {
-      alert(error.error_description || error.message) 
+      // alert() 팝업 증발 버그를 해결하기 위해 화면에 명확한 에러 텍스트로 부드럽게 표시합니다.
+      setLoginFormError(error.error_description || error.message) 
     } else {
       setLinkSent(true) // 메일 전송 성공 시 => 화면 전환 (View 2)
     }
@@ -184,10 +184,8 @@ export default function Login() {
         <button
           onClick={() => {
             setAuthError(null)
-            const unhashedPath = window.location.hash.includes('?') 
-              ? window.location.hash.split('?')[0] 
-              : window.location.hash.split('#')[0]
-            window.history.replaceState({}, document.title, window.location.pathname + unhashedPath)
+            const cleanHash = window.location.hash.split('?')[0]
+            window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
           }}
           style={buttonStyle}
         >
@@ -246,6 +244,14 @@ export default function Login() {
           {loading ? <span>로그인 중...</span> : <span>로그인</span>}
         </button>
       </form>
+
+      {/* 폼 제출 실패 시 나타나는 인라인 에러 메시지 (60초 대기 등) */}
+      {loginFormError && (
+        <p style={{ color: '#d9534f', marginTop: '15px', fontSize: '14px', fontWeight: 'bold' }}>
+          ⚠️ {loginFormError}
+        </p>
+      )}
+
       <div style={{ marginTop: '20px' }}>
         <button onClick={() => navigate('/')} style={{ ...buttonStyle, backgroundColor: '#6c757d' }}>
           처음으로

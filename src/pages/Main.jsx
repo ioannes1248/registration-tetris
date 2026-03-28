@@ -35,6 +35,13 @@ const Main = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // 🔥 [버그 원천 차단] Main 진입 완료 시, 주소창에 숨어있는 이전 로그인 파라미터(?token=... 등)를 브라우저에서 완전히 삭제합니다.
+    // 이 처리를 통해 메인에서 놀다가 '로그아웃' 버튼을 눌렀을 때 찌꺼기 파라미터가 Login 페이지로 딸려가는 불상사를 막습니다.
+    if (window.location.search || window.location.hash.includes('?')) {
+      const cleanHash = window.location.hash.split('?')[0]
+      window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
+    }
+
     // 흐름도 2-A: 컴포넌트 마운트 시 최초 1회 세션(로그인 상태) 확인
     const fetchSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
