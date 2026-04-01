@@ -71,6 +71,13 @@ export default function Login() {
   const [linkSent, setLinkSent] = useState(false)
   const [loginFormError, setLoginFormError] = useState('') // [신규] 폼 제출 시 발생하는 인라인 에러 (60초 제한 등)
 
+  // 애니메이션
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 50)
+    return () => clearTimeout(t)
+  }, [])
+
   // 흐름도 2: 각종 인증 과정 (토큰, 세션 감지) 및 로그인 뷰 자동 스킵 훅
   useEffect(() => {
     const params = getSearchParams()
@@ -177,20 +184,33 @@ export default function Login() {
   // View 1: 에러 발생 시
   if (authError) {
     return (
-      <div style={containerStyle}>
-        <h2>인증 실패</h2>
-        <p>✗ 인증에 실패했습니다.</p>
-        <p>{authError}</p>
-        <button
-          onClick={() => {
-            setAuthError(null)
-            const cleanHash = window.location.hash.split('?')[0]
-            window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
-          }}
-          style={buttonStyle}
-        >
-          로그인으로 돌아가기
-        </button>
+      <div className="page-center" style={{ background: 'var(--color-bg)' }}>
+        <div className={`login-card text-center ${mounted ? 'animate-scale' : ''}`} style={{ opacity: mounted ? undefined : 0 }}>
+          {/* Error Icon */}
+          <div style={{
+            width: 56, height: 56, borderRadius: 'var(--radius-full)',
+            background: 'var(--color-error-light)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto var(--space-5)',
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="var(--color-error)" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <h2 style={{ marginBottom: 'var(--space-2)' }}>인증 실패</h2>
+          <p style={{ marginBottom: 'var(--space-6)', fontSize: '0.93rem' }}>{authError}</p>
+          <button
+            className="btn btn-primary btn-md"
+            style={{ width: '100%' }}
+            onClick={() => {
+              setAuthError(null)
+              const cleanHash = window.location.hash.split('?')[0]
+              window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
+            }}
+          >
+            로그인으로 돌아가기
+          </button>
+        </div>
       </div>
     )
   }
@@ -198,29 +218,47 @@ export default function Login() {
   // View 2: 매직 링크가 사용자 메일로 무사히 발송되었을 시
   if (linkSent) {
     return (
-      <div style={containerStyle}>
-        <h2 style={{ fontSize: '48px', margin: '0 0 10px 0' }}>📧</h2>
-        <h2 style={{ marginBottom: '15px' }}>메일을 확인해주세요!</h2>
-        <p style={{ lineHeight: '1.6', marginBottom: '30px' }}>
-          <strong>{email}</strong> 주소로<br />
-          로그인 링크가 포함된 메일을 보냈습니다.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '300px' }}>
-          <button 
-            onClick={() => window.open('https://mail.google.com/a/cku.ac.kr', '_blank')} 
-            style={{ ...buttonStyle, backgroundColor: '#28a745' }}
-          >
-            내 메일함({email}) 열어보기
-          </button>
-          <button 
-            onClick={() => {
-              setLinkSent(false)
-              setEmail('')
-            }} 
-            style={{ ...buttonStyle, backgroundColor: '#6c757d' }}
-          >
-            처음으로 돌아가기
-          </button>
+      <div className="page-center" style={{ background: 'var(--color-bg)' }}>
+        <div className={`login-card text-center ${mounted ? 'animate-scale' : ''}`} style={{ opacity: mounted ? undefined : 0 }}>
+          {/* Mail Icon */}
+          <div style={{
+            width: 56, height: 56, borderRadius: 'var(--radius-full)',
+            background: 'var(--color-primary-light)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto var(--space-5)',
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="3" stroke="var(--color-primary)" strokeWidth="2"/>
+              <path d="M2 7l10 6 10-6" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <h2 style={{ marginBottom: 'var(--space-2)' }}>메일을 확인해주세요</h2>
+          <p style={{ marginBottom: 'var(--space-8)', fontSize: '0.93rem', lineHeight: '1.7' }}>
+            <code style={{ fontWeight: 600 }}>{email}</code> 주소로<br />
+            로그인 링크가 포함된 메일을 보냈습니다.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              className="btn btn-success btn-md"
+              style={{ width: '100%' }}
+              onClick={() => window.open('https://mail.google.com/a/cku.ac.kr', '_blank')}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3L11 8L6 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              내 메일함 열기
+            </button>
+            <button
+              className="btn btn-secondary btn-md"
+              style={{ width: '100%' }}
+              onClick={() => {
+                setLinkSent(false)
+                setEmail('')
+              }}
+            >
+              처음으로 돌아가기
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -228,58 +266,101 @@ export default function Login() {
 
   // View 3: 이메일 전송조차 하지 않은 가장 최초의 폼 입력 상태
   return (
-    <div style={containerStyle}>
-      <h2>공강 테트리스 로그인</h2>
-      <p>아래에 가톨릭관동대학교 이메일을 입력하여 로그인하세요.</p>
-      <form onSubmit={handleLogin} style={formStyle}>
-        <input
-          type="email"
-          placeholder="@cku.ac.kr"
-          value={email}
-          required={true}
-          onChange={(e) => setEmail(e.target.value)}
-          style={inputStyle}
-        />
-        <button type="submit" disabled={loading} style={buttonStyle}>
-          {loading ? <span>로그인 중...</span> : <span>로그인</span>}
-        </button>
-      </form>
+    <div className="page-center" style={{ background: 'var(--color-bg)' }}>
+      <div className={`login-card ${mounted ? 'animate-scale' : ''}`} style={{ opacity: mounted ? undefined : 0 }}>
+        {/* 브랜드 로고 */}
+        <div style={{ marginBottom: 'var(--space-8)' }}>
+          <div style={{
+            fontFamily: 'var(--font-display)', fontWeight: 700,
+            fontSize: '1.2rem', letterSpacing: '-0.03em',
+            color: 'var(--color-primary)', marginBottom: 'var(--space-1)',
+          }}>
+            공강 테트리스
+          </div>
+          <h2 style={{ marginBottom: 'var(--space-2)' }}>로그인</h2>
+          <p style={{ margin: 0 }}>가톨릭관동대학교 이메일로 로그인하세요.</p>
+        </div>
 
-      {/* 폼 제출 실패 시 나타나는 인라인 에러 메시지 (60초 대기 등) */}
-      {loginFormError && (
-        <p style={{ color: '#d9534f', marginTop: '15px', fontSize: '14px', fontWeight: 'bold' }}>
-          ⚠️ {loginFormError}
-        </p>
-      )}
+        <form onSubmit={handleLogin} className="flex flex-col gap-3">
+          {/* Label */}
+          <div>
+            <label style={{
+              display: 'block', fontSize: '0.87rem', fontWeight: 500,
+              color: 'var(--color-text-primary)', marginBottom: 'var(--space-2)',
+            }}>
+              이메일
+            </label>
+            <input
+              type="email"
+              className={`input ${loginFormError ? 'input-error' : ''}`}
+              placeholder="학번@cku.ac.kr"
+              value={email}
+              required
+              onChange={(e) => {
+                setEmail(e.target.value)
+                if (loginFormError) setLoginFormError('')
+              }}
+            />
+          </div>
 
-      <div style={{ marginTop: '20px' }}>
-        <button onClick={() => navigate('/')} style={{ ...buttonStyle, backgroundColor: '#6c757d' }}>
-          처음으로
+          {/* 에러 메시지 */}
+          {loginFormError && (
+            <div className="message-error animate-fade">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M7 4v3M7 9v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              {loginFormError}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn btn-primary btn-md"
+            style={{ width: '100%', marginTop: 'var(--space-2)' }}
+          >
+            {loading ? (
+              <>
+                <div className="spinner" />
+                로그인 중...
+              </>
+            ) : (
+              '로그인 링크 받기'
+            )}
+          </button>
+        </form>
+
+        {/* 구분선 */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--space-4)',
+          margin: 'var(--space-6) 0',
+        }}>
+          <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+          <span style={{ fontSize: '0.8rem', color: 'var(--color-neutral)' }}>또는</span>
+          <div style={{ flex: 1, height: '1px', background: 'var(--color-border)' }} />
+        </div>
+
+        <button
+          className="btn btn-ghost btn-md"
+          style={{ width: '100%' }}
+          onClick={() => navigate('/')}
+        >
+          ← 메인으로 돌아가기
         </button>
       </div>
+
+      {/* 하단 안내 */}
+      <p style={{
+        marginTop: 'var(--space-6)',
+        fontSize: '0.73rem',
+        color: 'var(--color-neutral)',
+        textAlign: 'center',
+        lineHeight: 1.5,
+      }}>
+        로그인 시 이메일로 일회성 인증 링크가 발송됩니다.<br />
+        별도의 비밀번호가 필요하지 않습니다.
+      </p>
     </div>
   )
-}
-
-// 스타일 모음 (간략화)
-const containerStyle = {
-  display: 'flex', flexDirection: 'column', alignItems: 'center',
-  justifyContent: 'center', height: '100vh', backgroundColor: '#ffffff',
-  textAlign: 'center'
-}
-
-const formStyle = {
-  display: 'flex', flexDirection: 'column', gap: '10px',
-  width: '300px', marginTop: '20px'
-}
-
-const inputStyle = {
-  padding: '10px', fontSize: '16px', borderRadius: '4px',
-  border: '1px solid #ccc'
-}
-
-const buttonStyle = {
-  padding: '10px', fontSize: '16px', cursor: 'pointer',
-  backgroundColor: '#007bff', color: 'white', border: 'none',
-  borderRadius: '4px'
 }
