@@ -14,25 +14,61 @@ window.addEventListener('hashchange', (event) => {
 {
   const currUrl = new URL(window.location.href)
 
-  // A. 해시 속 치명적인 데이터(error, access_token)를 안전한 쿼리 스트링(?)으로 도피시킴
-  if (currUrl.hash.includes('error=') || currUrl.hash.includes('access_token=')) {
-    const hashParams = currUrl.hash.substring(1) // '#' 기호 탈락
-    currUrl.search = currUrl.search ? currUrl.search + '&' + hashParams : '?' + hashParams
-  }
+  const fullHash = currUrl.hash;
+  
+  if (fullHash.includes('error=') || fullHash.includes('access_token=')) {
+    // 1. 모든 URL에서 구분자(?, #, &)를 기준으로 쪼개서 key=value 형태를 찾습니다.
+    const parts = fullHash.split(/[?#&]/);
+    const searchParams = new URLSearchParams(currUrl.search);
+    
+    let isModified = false;
+    for (const part of parts) {
+      if (part.includes('=')) {
+        const [key, ...values] = part.split('=');
+        const value = values.join('=');
+        const targetKeys = [
+          'access_token', 'refresh_token', 'expires_in', 
+          'token_type', 'type', 'error', 'error_description', 'error_code'
+        ];
+        if (targetKeys.includes(key)) {
+          searchParams.set(key, value);
+          isModified = true;
+        }
+      }
+    }
 
-  // B. 만약 URL 어딘가에 인증 관련 파라미터가 있다면, 라우터를 반드시 Login 뷰로 틀어버림
-  if (
-    currUrl.search.includes('token_hash=') || 
-    currUrl.search.includes('error=') || 
-    currUrl.search.includes('access_token=')
-  ) {
-    if (!currUrl.hash.startsWith('#/login') && !currUrl.hash.startsWith('#/main')) {
-      currUrl.hash = '#/login'
+    if (isModified) {
+      // 2. 파싱한 토큰들을 안전한 쿼리 스트링(?)으로 이동시킵니다.
+      currUrl.search = searchParams.toString();
+      
+      // 3. HashRouter가 인식할 수 있도록 해시 부분에서 토큰 찌꺼기들을 분리하여 깨끗한 경로만 남깁니다.
+      let cleanRoute = '';
+      const routeMatch = fullHash.match(/^#(\/[^?#&]*)/);
+      if (routeMatch) {
+        cleanRoute = routeMatch[0]; // "#/login" 등
+      }
+      
+      if (!cleanRoute || (!cleanRoute.startsWith('#/login') && !cleanRoute.startsWith('#/main'))) {
+        cleanRoute = '#/login';
+      }
+      
+      currUrl.hash = cleanRoute;
+      
+      // 안전하게 조립된 주소로 브라우저 기록을 슬쩍 바꿔치기
+      const safeStr = currUrl.toString()
+      window.history.replaceState(null, '', safeStr)
+      window.__RAW_URL__ = safeStr
+    }
+  } else {
+    // 만약 URL 어딘가에 인증 관련 파라미터가 있다면, 라우터를 반드시 Login 뷰로 틀어버림
+    if (
+      currUrl.search.includes('token_hash=') || 
+      currUrl.search.includes('error=') || 
+      currUrl.search.includes('access_token=')
+    ) {
+      if (!currUrl.hash.startsWith('#/login') && !currUrl.hash.startsWith('#/main')) {
+        currUrl.hash = '#/login'
+      }
     }
   }
-
-  // 안전하게 조립된 주소로 브라우저 기록을 슬쩍 바꿔치기 (에러가 파싱될 수 있도록 RAW_URL도 갱신)
-  const safeStr = currUrl.toString()
-  window.history.replaceState(null, '', safeStr)
-  window.__RAW_URL__ = safeStr
 }

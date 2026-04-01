@@ -91,8 +91,8 @@ export default function Login() {
     if (access_token && refresh_token) {
       supabase.auth.setSession({ access_token, refresh_token }).then(({ data, error }) => {
         if (!error && data?.session) {
-          const unhashedPath = window.location.hash.split('#')[0]
-          window.history.replaceState({}, document.title, window.location.pathname + unhashedPath)
+          const cleanHash = window.location.hash.split('?')[0]
+          window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
           navigate('/main', { replace: true })
         } else {
           setAuthError(error ? error.message : '세션 설정 실패')
