@@ -28,7 +28,7 @@ const Intro = () => {
         {/* 상단 영역: 로고 및 방문자 수 */}
         <header style={headerStyle}>
           <div style={logoContainerStyle}>
-            {/* ★ 변경된 부분: 불러온 logoImg 변수를 사용합니다. */}
+            {/*변경된 부분: 불러온 logoImg 변수를 사용 */}
             <img 
               src={logoImg} 
               alt="CKU Logo" 
