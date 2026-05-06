@@ -58,7 +58,7 @@ const Main = () => {
 
     // 흐름도 2-B: 실시간 로그아웃 감지용 감시자 등록
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // 다른 브라우저 탭에서 로그아웃을 누르거나 세션 만료 시 즉시 작동
+      // 브라우저 탭에서 로그아웃을 누르거나 세션 만료 시 즉시 작동
       if (event === 'SIGNED_OUT' || !session) {
         navigate('/', { replace: true })
       } else if (session?.user) {
