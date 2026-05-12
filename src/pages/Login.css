@@ -1,0 +1,109 @@
+.login-page {
+  background: var(--color-bg);
+}
+
+.login-hidden {
+  opacity: 0;
+}
+
+.login-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-5);
+  border-radius: var(--radius-full);
+}
+
+.login-error-icon {
+  background: var(--color-error-light);
+}
+
+.login-mail-icon {
+  background: var(--color-primary-light);
+}
+
+.login-heading {
+  margin-bottom: var(--space-2);
+}
+
+.login-error-text {
+  margin-bottom: var(--space-6);
+  font-size: 0.93rem;
+}
+
+.login-mail-text {
+  margin-bottom: var(--space-8);
+  font-size: 0.93rem;
+  line-height: 1.7;
+}
+
+.login-strong-code {
+  font-weight: 600;
+}
+
+.login-full-button,
+.login-submit-button,
+.login-guest-button {
+  width: 100%;
+}
+
+.login-brand-block {
+  margin-bottom: var(--space-8);
+}
+
+.login-brand-title {
+  margin-bottom: var(--space-1);
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.login-no-margin {
+  margin: 0;
+}
+
+.login-email-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-primary);
+  font-size: 0.87rem;
+  font-weight: 500;
+}
+
+.login-submit-button {
+  margin-top: var(--space-2);
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-6) 0;
+}
+
+.login-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.login-divider-text {
+  color: var(--color-neutral);
+  font-size: 0.8rem;
+}
+
+.login-guest-button {
+  margin-bottom: var(--space-2);
+}
+
+.login-footer-text {
+  margin-top: var(--space-6);
+  color: var(--color-neutral);
+  text-align: center;
+  font-size: 0.73rem;
+  line-height: 1.5;
+}

@@ -1,0 +1,181 @@
+.intro-page {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-image: url('../images/back.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.intro-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.intro-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 40px;
+  color: white;
+  font-family: "Noto Sans KR", sans-serif;
+}
+
+.intro-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.intro-logo-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.intro-logo-image {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 8px;
+  border: 2px solid white;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.intro-logo-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.intro-main {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: 5%;
+  padding-right: 5%;
+}
+
+.intro-main-text {
+  text-align: right;
+}
+
+.intro-subtitle {
+  margin: 0 0 10px;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 500;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.intro-title {
+  margin: 0 0 30px;
+  color: white;
+  font-size: 5rem;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.intro-start-button {
+  padding: 15px 40px;
+  border: 2px solid white;
+  border-radius: 4px;
+  color: white;
+  background-color: rgba(255, 255, 255, 0.2);
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  backdrop-filter: blur(5px);
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.intro-start-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.intro-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.intro-footer-left {
+  text-align: left;
+}
+
+.intro-contact-box {
+  margin-bottom: 8px;
+}
+
+.intro-contact-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  color: black;
+  background-color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.intro-footer-link {
+  margin: 2px 0;
+  color: #cbd5e1;
+}
+
+.intro-footer-right {
+  text-align: right;
+  font-size: 0.75rem;
+}
+
+.intro-footer-note {
+  color: #cbd5e1;
+}
+
+@media (max-width: 640px) {
+  .intro-content {
+    padding: 28px 22px;
+  }
+
+  .intro-main {
+    justify-content: center;
+    padding-top: 15%;
+    padding-right: 0;
+  }
+
+  .intro-main-text {
+    text-align: center;
+  }
+
+  .intro-title {
+    font-size: 3rem;
+  }
+
+  .intro-subtitle {
+    font-size: 1rem;
+  }
+
+  .intro-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .intro-footer-right {
+    text-align: left;
+  }
+}

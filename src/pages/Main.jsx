@@ -2,6 +2,17 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 
+// ============================================================
+// ----- TEMP GUEST LOGIN START: 개발 완료 후 이 임시 코드 삭제 -----
+// ============================================================
+
+const GUEST_MODE_KEY = 'registration-tetris:guest-mode'
+const GUEST_EMAIL = 'guest@cku.ac.kr'
+
+// ============================================================
+// ----- TEMP GUEST LOGIN END ---------------------------------
+// ============================================================
+
 /**
  * =========================================================
  * [Main.jsx 컴포넌트 흐름도]
@@ -45,9 +56,30 @@ const Main = () => {
     // 흐름도 2-A: 컴포넌트 마운트 시 최초 1회 세션(로그인 상태) 확인
     const fetchSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      
+
+      // ============================================================
+      // ----- TEMP GUEST LOGIN START: 개발 완료 후 이 변수 삭제 -----
+      // ============================================================
+
+      const isGuestMode = window.sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
+
+      // ============================================================
+      // ----- TEMP GUEST LOGIN END ---------------------------------
+      // ============================================================
+
       if (session?.user) {
         setUserEmail(session.user.email) // 세션이 있으면 이메일을 화면 변수에 저장 (렌더링 준비)
+
+      // ============================================================
+      // ----- TEMP GUEST LOGIN START: 개발 완료 후 이 분기 삭제 -----
+      // ============================================================
+
+      } else if (isGuestMode) {
+        setUserEmail(GUEST_EMAIL)
+
+      // ============================================================
+      // ----- TEMP GUEST LOGIN END ---------------------------------
+      // ============================================================
       } else {
         navigate('/', { replace: true }) // 비로그인 시 인트로 페이지로 강제 반송
       }
@@ -60,6 +92,19 @@ const Main = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // 브라우저 탭에서 로그아웃을 누르거나 세션 만료 시 즉시 작동
       if (event === 'SIGNED_OUT' || !session) {
+
+        // ============================================================
+        // ----- TEMP GUEST LOGIN START: 개발 완료 후 이 분기 삭제 -----
+        // ============================================================
+
+        if (window.sessionStorage.getItem(GUEST_MODE_KEY) === 'true') {
+          setUserEmail(GUEST_EMAIL)
+          return
+        }
+
+        // ============================================================
+        // ----- TEMP GUEST LOGIN END ---------------------------------
+        // ============================================================
         navigate('/', { replace: true })
       } else if (session?.user) {
         setUserEmail(session.user.email)
@@ -74,6 +119,16 @@ const Main = () => {
 
   // 로그아웃을 실행하는 함수
   const handleLogout = async () => {
+
+    // ============================================================
+    // ----- TEMP GUEST LOGIN START: 개발 완료 후 이 줄 삭제 -----
+    // ============================================================
+
+    window.sessionStorage.removeItem(GUEST_MODE_KEY)
+
+    // ============================================================
+    // ----- TEMP GUEST LOGIN END ---------------------------------
+    // ============================================================
     await supabase.auth.signOut() 
     // 👉 여기서 signOut()을 부르면 흐름도 2-B의 감시자가 "로그아웃 감지!" 하고 알아서 안내인 역할을 해줍니다.
   }
@@ -96,7 +151,14 @@ const Main = () => {
       <div>
         {/* State에 담아뒀던 계정 정보(이메일)를 꺼내서 화면에 보여줍니다 */}
         <p>현재 접속 계정: {userEmail}</p>
-        <button onClick={handleLogout}>로그아웃</button>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <button className="btn btn-primary btn-md" onClick={() => navigate('/tetris')}>
+            공강 테트리스 시작
+          </button>
+          <button className="btn btn-secondary btn-md" onClick={handleLogout}>
+            로그아웃
+          </button>
+        </div>
       </div>
     </div>
   )
