@@ -174,57 +174,145 @@ export default function Login() {
   // 흐름도 4: 조건부 화면 렌더링 로직 (View 결정)
   // ==========================================
 
-  // View 1: 에러 발생 시
+
+  // View 1: 인증 실패 (에러 발생) 화면 (디자인 적용)
+  // ==========================================
   if (authError) {
     return (
       <div style={containerStyle}>
-        <h2>인증 실패</h2>
-        <p>✗ 인증에 실패했습니다.</p>
-        <p>{authError}</p>
-        <button
-          onClick={() => {
-            setAuthError(null)
-            const cleanHash = window.location.hash.split('?')[0]
-            window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
-          }}
-          style={buttonStyle}
-        >
-          로그인으로 돌아가기
-        </button>
-      </div>
-    )
-  }
+        {/* 학교 포털 스타일의 점선 박스 */}
+        <div style={formStyle}>
+          {/* 상단 타이틀 영역 */}
+          <div style={{ 
+            width: '100%',
+            borderBottom: '1px solid #e5e5e5',
+            paddingBottom: '10px',
+            marginBottom: '10px',
+            color: '#d9534f', // 에러를 직관적으로 나타내는 붉은색
+            fontSize: '22px',
+            fontWeight: 'bold',
+            textAlign: 'center' 
+          }}>
+            인증 오류 안내
+          </div>
 
-  // View 2: 매직 링크가 사용자 메일로 무사히 발송되었을 시
-  if (linkSent) {
-    return (
-      <div style={containerStyle}>
-        <h2 style={{ fontSize: '48px', margin: '0 0 10px 0' }}>📧</h2>
-        <h2 style={{ marginBottom: '15px' }}>메일을 확인해주세요!</h2>
-        <p style={{ lineHeight: '1.6', marginBottom: '30px' }}>
-          <strong>{email}</strong> 주소로<br />
-          로그인 링크가 포함된 메일을 보냈습니다.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '300px' }}>
-          <button 
-            onClick={() => window.open('https://mail.google.com/a/cku.ac.kr', '_blank')} 
-            style={{ ...buttonStyle, backgroundColor: '#28a745' }}
-          >
-            내 메일함({email}) 열어보기
-          </button>
-          <button 
-            onClick={() => {
-              setLinkSent(false)
-              setEmail('')
-            }} 
-            style={{ ...buttonStyle, backgroundColor: '#6c757d' }}
-          >
-            처음으로 돌아가기
-          </button>
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ fontSize: '50px', marginBottom: '20px' }}>⚠️</div>
+            
+            <h2 style={{ 
+              color: '#d9534f', 
+              fontSize: '18px', 
+              marginBottom: '15px',
+              fontWeight: 'bold' 
+            }}>
+              로그인 링크가 만료되었거나 유효하지 않습니다.
+            </h2>
+
+            {/* 에러 메시지 상세 박스 */}
+            <div style={{ 
+              backgroundColor: '#fef2f2', 
+              border: '1px solid #fecaca',
+              color: '#ef4444', 
+              padding: '15px', 
+              borderRadius: '8px',
+              fontSize: '13px',
+              marginBottom: '30px',
+              wordBreak: 'break-all',
+              lineHeight: '1.5'
+            }}>
+              {/* URL에 섞여 들어온 '+' 기호를 깔끔한 공백으로 변환해 보여줍니다 */}
+              상세 사유: {authError.replace(/\+/g, ' ')}
+            </div>
+
+            <button
+              onClick={() => {
+                setAuthError(null)
+                // URL 찌꺼기 청소 로직 유지
+                const cleanHash = window.location.hash.split('?')[0]
+                window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
+              }}
+              style={{ 
+                ...buttonStyle, 
+                backgroundColor: '#64748b', // 다시 시도하도록 유도하는 차분한 회색 버튼
+                width: '100%'
+              }}
+            >
+              로그인 화면으로 돌아가기
+            </button>
+          </div>
         </div>
       </div>
     )
   }
+
+// View 2: 매직 링크 발송 완료 화면 (디자인 적용 버전)
+// ==========================================
+if (linkSent) {
+  return (
+    <div style={containerStyle}>
+      {/* 학교 포털 스타일의 점선 박스 */}
+      <div style={formStyle}>
+        {/* 상단 타이틀 영역 */}
+        <div style={{ ...headerTitleStyle, textAlign: 'center' }}>
+          메일 발송 완료
+        </div>
+
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ fontSize: '50px', marginBottom: '20px' }}>📧</div>
+          
+          <h2 style={{ 
+            color: '#309b9f', 
+            fontSize: '20px', 
+            marginBottom: '15px',
+            fontWeight: 'bold' 
+          }}>
+            메일을 확인해주세요!
+          </h2>
+
+          <p style={{ 
+            fontSize: '14px', 
+            lineHeight: '1.8', 
+            color: '#555',
+            marginBottom: '30px'
+          }}>
+            <strong style={{ color: '#333', borderBottom: '1px solid #309b9f' }}>
+              {email}
+            </strong> 주소로<br />
+            로그인 링크가 포함된 메일을 보냈습니다.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <button 
+              onClick={() => window.open('https://mail.google.com/a/cku.ac.kr', '_blank')} 
+              style={buttonStyle} // 우리가 만든 청록색 버튼 스타일 사용
+            >
+              내 메일함(@cku.ac.kr) 열어보기
+            </button>
+            
+            <button 
+              onClick={() => {
+                setLinkSent(false)
+                setEmail('')
+              }} 
+              style={{ 
+                ...buttonStyle, 
+                backgroundColor: '#666666', // '처음으로'는 차분한 회색으로
+                fontSize: '13px'
+              }}
+            >
+              처음으로 돌아가기
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 하단 안내 문구 (포털 느낌 추가) */}
+      <p style={{ marginTop: '20px', fontSize: '12px', color: '#999' }}>
+        ※ 메일이 오지 않았다면 스팸 메일함을 확인해 주세요.
+      </p>
+    </div>
+  )
+}
 
   // View 3: 이메일 전송조차 하지 않은 가장 최초의 폼 입력 상태
   return (
@@ -261,25 +349,69 @@ export default function Login() {
   )
 }
 
-// 스타일 모음 (간략화)
+// ==========================================
+// 스타일 모음 (가톨릭관동대 공식 포털 스타일)
+// ==========================================
+
 const containerStyle = {
-  display: 'flex', flexDirection: 'column', alignItems: 'center',
-  justifyContent: 'center', height: '100vh', backgroundColor: '#ffffff',
-  textAlign: 'center'
+  display: 'flex', 
+  flexDirection: 'column', 
+  alignItems: 'center',      // 가로(좌우) 중앙 정렬
+  justifyContent: 'center',  // ★ 추가됨: 세로(위아래) 중앙 정렬!
+  minHeight: '100vh',        // 화면 전체 높이 사용
+  width: '100%',
+  backgroundColor: '#ffffff', 
+  color: '#333333',
+  fontFamily: '"맑은 고딕", "Malgun Gothic", "Noto Sans KR", sans-serif', 
+  padding: '20px',
+  boxSizing: 'border-box'
 }
 
 const formStyle = {
-  display: 'flex', flexDirection: 'column', gap: '10px',
-  width: '300px', marginTop: '20px'
+  display: 'flex', 
+  flexDirection: 'column', 
+  gap: '15px',
+  width: '100%',
+  maxWidth: '450px', // 사진처럼 가로로 살짝 넓은 박스
+  marginTop: '20px',
+  backgroundColor: '#ffffff', 
+  padding: '40px',
+  // 캡처 화면의 핵심인 '회색 빗금/점선 테두리' 느낌을 살립니다.
+  border: '2px dotted #cccccc', 
 }
 
 const inputStyle = {
-  padding: '10px', fontSize: '16px', borderRadius: '4px',
-  border: '1px solid #ccc'
+  padding: '10px 15px', 
+  fontSize: '14px', 
+  border: '1px solid #bfcedb', // 캡처본의 옅은 파란빛 도는 회색 테두리
+  backgroundColor: '#eef3f8', // 캡처본의 입력칸 배경색 (연한 하늘색 느낌)
+  color: '#333',
+  outline: 'none',
+  height: '40px',
+  boxSizing: 'border-box'
 }
 
 const buttonStyle = {
-  padding: '10px', fontSize: '16px', cursor: 'pointer',
-  backgroundColor: '#007bff', color: 'white', border: 'none',
-  borderRadius: '4px'
+  padding: '12px', 
+  fontSize: '15px', 
+  fontWeight: 'bold',
+  cursor: 'pointer',
+  backgroundColor: '#309b9f', // 캡처본의 메인 청록색 버튼 컬러!
+  color: '#ffffff', 
+  border: 'none',
+  marginTop: '10px',
+  transition: 'background-color 0.2s',
+}
+
+// (선택 사항) 로그인 박스 위에 캡처본처럼 '로그인' 이라는 타이틀을 달아주기 위한 추가 스타일
+// 만약 적용하고 싶다면 JSX의 <form> 태그 바로 위에 <div style={headerTitleStyle}>로그인</div> 을 추가하시면 됩니다.
+const headerTitleStyle = {
+  width: '100%',
+  maxWidth: '450px',
+  borderBottom: '1px solid #e5e5e5',
+  paddingBottom: '10px',
+  marginBottom: '10px',
+  color: '#309b9f',
+  fontSize: '22px',
+  fontWeight: 'bold'
 }

@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import backgroundImg from '../images/backGround.png' 
+import backgroundImg from '../images/back.png' 
 import logoImg from '../images/학교로고.png'
 
 /**
@@ -144,9 +144,10 @@ const logoTextStyle = {
 const mainStyle = {
   display: 'flex',
   justifyContent: 'flex-end', // 오른쪽 정렬
-  alignItems: 'center',
+  alignItems: 'flex-start',
   flex: 1,
   paddingRight: '5%',
+  paddingTop: '5%',
 }
 
 const mainTextContainerStyle = {
