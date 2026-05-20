@@ -3,6 +3,7 @@ import Intro from './pages/Intro'
 import Login from './pages/Login'
 import Main from './pages/Main'
 import Tetris from './pages/Tetris'
+import Courses from './pages/Courses'
 
 /**
  * =========================================================
@@ -15,7 +16,8 @@ import Tetris from './pages/Tetris'
  *    ├─ https://도메인/#/        ➔ {<Intro />} 대문 랜딩 페이지
  *    ├─ https://도메인/#/login   ➔ {<Login />}  로그인 처리 페이지
  *    ├─ https://도메인/#/main    ➔ {<Main />}   인증 회원 전용 페이지
- *    └─ https://도메인/#/tetris  ➔ {<Tetris />} 공강 테트리스 페이지
+ *    ├─ https://도메인/#/tetris  ➔ {<Tetris />} 공강 테트리스 페이지
+ *    └─ https://도메인/#/courses ➔ {<Courses />} 과목 테이블 조회 테스트 페이지
  * =========================================================
  */
 function App() {
@@ -28,6 +30,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/main" element={<Main />} />
         <Route path="/tetris" element={<Tetris />} />
+        <Route path="/courses" element={<Courses />} />
       </Routes>
     </Router>
   )

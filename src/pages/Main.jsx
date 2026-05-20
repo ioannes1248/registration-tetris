@@ -128,6 +128,9 @@ const Main = () => {
             <div className="user-avatar">{getInitial(userEmail)}</div>
             <span>{userEmail}</span>
           </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/courses')}>
+            과목 조회
+          </button>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             로그아웃
           </button>
