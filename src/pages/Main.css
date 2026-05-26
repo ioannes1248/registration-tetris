@@ -1,0 +1,243 @@
+/* ============================================================
+   공강 테트리스 메인 가이드 페이지 전용 CSS
+   테마: 가톨릭관동대학교 공식 포털 (청록 포인트 + 클린 화이트)
+   ============================================================ */
+
+/* 1. 학교 테마 전용 색상 변수 정의 */
+:root {
+  --color-primary: #309b9f;        /* 메인 청록색 */
+  --color-primary-hover: #267c7f;  /* 버튼 호버용 짙은 청록색 */
+  --color-neutral: #94a3b8;        /* 비활성/서브 텍스트 회색 */
+  
+  /* 가이드 스텝(1~4) 포인트 컬러 - 청록색 계열로 톤온톤 배치 */
+  --color-subject-1: #66c2c5;      /* 밝은 청록 */
+  --color-subject-2: #48b1b4;      /* 기본 청록 */
+  --color-subject-3: #309b9f;      /* 메인 청록 */
+  --color-subject-4: #237b7e;      /* 짙은 청록 */
+}
+
+/* 2. 대시보드 전체 레이아웃 */
+.dashboard {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  font-family: "Noto Sans KR", sans-serif;
+  color: #334155;
+  overflow-x: hidden;
+}
+
+/* 3. 상단 네비게이션 */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding: 0 40px;
+  background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.nav-brand span {
+  color: var(--color-primary); 
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #f1f5f9;
+  padding: 4px 12px 4px 4px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+/* 4. 히어로 (타이틀) 섹션 */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 100%);
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: -1px;
+  margin-bottom: 20px;
+  color: #1e293b;
+}
+
+.hero-title span {
+  color: var(--color-primary);
+}
+
+.hero-subtitle {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: #64748b;
+}
+
+/* 5. 가이드 스텝 (오버랩 카드 영역 - 🔥 크기 조정) */
+.guide-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px; /* 카드 간 간격 확대 */
+  width: 100%;
+}
+
+.guide-step-card {
+  position: relative;
+  background-color: #ffffff;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px; /* 라운드 강화 */
+  padding: 50px 28px 30px; /* 내부 여백 확대 (위쪽 공간 확보) */
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  min-height: 240px; /* 🔥 카드 최소 높이를 지정하여 모두 일정한 넉넉한 크기 유지 */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 🔥 호버 시 점선이 학교 상징색 실선으로 변하며 부드럽게 떠오르는 효과 */
+.guide-step-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--color-primary);
+  border-style: solid; 
+  box-shadow: 0 20px 40px rgba(48, 155, 159, 0.12);
+}
+
+.guide-step-number {
+  position: absolute;
+  top: -22px; /* 뱃지가 커진 만큼 위로 살짝 더 올림 */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px; /* 🔥 뱃지 크기 확대 */
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 900;
+  font-size: 1.25rem;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  border: 4px solid #ffffff; /* 카드 배경과 겹치는 부분에 흰색 링 효과 추가 */
+}
+
+/* 6. 하단 액션(CTA) 배너 */
+.main-cta-section {
+  margin-top: 70px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.main-cta-content {
+  background: var(--color-primary); 
+  padding: 70px 40px;
+  text-align: center;
+  border-radius: 20px;
+  box-shadow: 0 15px 35px rgba(48, 155, 159, 0.25);
+}
+
+/* 7. 공통 버튼 및 유틸리티 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-lg {
+  padding: 16px 36px;
+  font-size: 1.15rem;
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: #64748b;
+  border: 1px solid transparent;
+}
+
+.btn-ghost:hover {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-center { align-items: center; justify-content: center; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+.container { max-width: 1300px; margin: 0 auto; padding: 0 20px; } /* 컨테이너 너비도 살짝 넓힘 */
+
+/* 8. 애니메이션 */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in { animation: fadeInUp 0.6s ease forwards; opacity: 0; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-4 { animation-delay: 0.4s; }
+
+/* 9. 반응형 레이아웃 */
+@media (max-width: 1024px) {
+  .guide-steps {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+  }
+}
+
+@media (max-width: 640px) {
+  .guide-steps {
+    grid-template-columns: 1fr;
+  }
+  .hero-title {
+    font-size: 2.5rem;
+  }
+  .nav {
+    padding: 0 20px;
+  }
+}

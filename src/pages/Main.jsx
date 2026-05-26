@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import './Main.css'
 
 // ============================================================
 // ----- TEMP GUEST LOGIN START: 개발 완료 후 이 임시 코드 삭제 -----

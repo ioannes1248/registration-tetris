@@ -1,109 +1,161 @@
+/* Login.css */
+
 .login-page {
-  background: var(--color-bg);
-}
-
-.login-hidden {
-  opacity: 0;
-}
-
-.login-status-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin: 0 auto var(--space-5);
-  border-radius: var(--radius-full);
+  min-height: 100vh;
+  /* 카드(흰색)가 돋보이도록 배경은 아주 연한 회색으로 처리 */
+  background-color: #f8f9fa; 
+  font-family: "Noto Sans KR", sans-serif;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
-.login-error-icon {
-  background: var(--color-error-light);
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background-color: #ffffff;
+  /* 공식 포털 스타일의 점선 테두리 */
+  border: 2px dashed #cbd5e1; 
+  border-radius: 12px;
+  padding: 40px 30px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  text-align: center;
 }
 
-.login-mail-icon {
-  background: var(--color-primary-light);
+.login-header {
+  margin-bottom: 30px;
 }
 
-.login-heading {
-  margin-bottom: var(--space-2);
+.login-logo {
+  font-size: 2.5rem;
+  margin-bottom: 15px;
 }
 
-.login-error-text {
-  margin-bottom: var(--space-6);
-  font-size: 0.93rem;
+.login-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 10px;
+  letter-spacing: -0.5px;
 }
 
-.login-mail-text {
-  margin-bottom: var(--space-8);
-  font-size: 0.93rem;
-  line-height: 1.7;
+.login-subtitle {
+  font-size: 0.95rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
 }
 
-.login-strong-code {
-  font-weight: 600;
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.login-full-button,
-.login-submit-button,
+.login-input {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-input::placeholder {
+  color: #94a3b8;
+}
+
+.login-input:focus {
+  outline: none;
+  /* 청록색 포인트 테두리 및 빛 번짐 효과 */
+  border-color: #309b9f; 
+  box-shadow: 0 0 0 3px rgba(48, 155, 159, 0.15);
+}
+
+.login-button {
+  width: 100%;
+  padding: 14px;
+  background-color: #309b9f; /* 청록색 포인트 */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.login-button:hover:not(:disabled) {
+  background-color: #267c7f;
+}
+
+.login-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login-button:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* 임시 게스트 로그인 버튼 */
 .login-guest-button {
   width: 100%;
-}
-
-.login-brand-block {
-  margin-bottom: var(--space-8);
-}
-
-.login-brand-title {
-  margin-bottom: var(--space-1);
-  color: var(--color-primary);
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.login-no-margin {
-  margin: 0;
-}
-
-.login-email-label {
-  display: block;
-  margin-bottom: var(--space-2);
-  color: var(--color-text-primary);
-  font-size: 0.87rem;
+  padding: 12px;
+  margin-top: 10px;
+  background-color: white;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
   font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.login-submit-button {
-  margin-top: var(--space-2);
+.login-guest-button:hover {
+  background-color: #f8fafc;
+  color: #334155;
 }
 
-.login-divider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin: var(--space-6) 0;
-}
-
-.login-divider-line {
-  flex: 1;
-  height: 1px;
-  background: var(--color-border);
-}
-
-.login-divider-text {
-  color: var(--color-neutral);
-  font-size: 0.8rem;
-}
-
-.login-guest-button {
-  margin-bottom: var(--space-2);
-}
-
-.login-footer-text {
-  margin-top: var(--space-6);
-  color: var(--color-neutral);
-  text-align: center;
-  font-size: 0.73rem;
+/* 안내 및 에러 메시지 */
+.login-message {
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
   line-height: 1.5;
+  text-align: left;
+}
+
+.login-message.error {
+  background-color: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+}
+
+.login-message.success {
+  background-color: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #ccfbf1;
+}
+
+/* 모바일 반응형 */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 30px 20px;
+  }
+  
+  .login-title {
+    font-size: 1.3rem;
+  }
+  
+  .login-subtitle {
+    font-size: 0.85rem;
+  }
 }

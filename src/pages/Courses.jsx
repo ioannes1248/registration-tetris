@@ -5,7 +5,7 @@ import './Courses.css'
 
 const GUEST_MODE_KEY = 'registration-tetris:guest-mode'
 const GUEST_EMAIL = 'guest@cku.ac.kr'
-const COURSES_TABLE = 'courses_2026_spring'
+const COURSES_TABLE = 'test table'
 const SAMPLE_LIMIT = 25
 
 const Courses = () => {

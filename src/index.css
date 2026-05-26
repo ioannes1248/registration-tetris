@@ -4,41 +4,43 @@
 
 /* ── CSS Custom Properties (Design Tokens) ── */
 :root {
-  /* Colors */
-  --color-primary: #6366F1;
-  --color-primary-hover: #4F46E5;
-  --color-primary-light: rgba(99, 102, 241, 0.08);
-  --color-primary-ring: rgba(99, 102, 241, 0.12);
-  --color-primary-glow: rgba(99, 102, 241, 0.35);
+  /* ── 1. 학교 상징색 (Primary Theme) ── */
+  --color-primary: #309b9f;        /* 메인 청록색 */
+  --color-primary-hover: #267c7f;  /* 버튼 호버 시 짙은 청록 */
+  --color-primary-light: rgba(48, 155, 159, 0.08); /* 옅은 청록 배경 */
+  --color-primary-ring: rgba(48, 155, 159, 0.12);
+  --color-primary-glow: rgba(48, 155, 159, 0.35);
 
-  --color-neutral: #9C9C9C;
-  --color-bg: #FAFAFA;
-  --color-surface: #FFFFFF;
-  --color-text-primary: #0A0A0A;
-  --color-text-secondary: #6B6B6B;
-  --color-border: #E8E8EC;
+  /* ── 2. 기본 배경 및 텍스트 컬러 (Neutral) ── */
+  --color-neutral: #94a3b8;
+  --color-bg: #f8f9fa;            /* 공식 포털 스타일의 연한 배경 */
+  --color-surface: #FFFFFF;       /* 카드 등 흰색 배경 */
+  --color-text-primary: #1e293b;  /* 가독성 높은 짙은 회색 */
+  --color-text-secondary: #64748b;
+  --color-border: #cbd5e1;        /* 경계선 및 대시보드 테두리 */
 
-  --color-success: #10B981;
+  /* ── 3. 상태 컬러 (Success/Warning/Error) ── */
+  --color-success: #10b981;
   --color-success-light: rgba(16, 185, 129, 0.1);
-  --color-warning: #F59E0B;
+  --color-warning: #f59e0b;
   --color-warning-light: rgba(245, 158, 11, 0.1);
-  --color-error: #EF4444;
+  --color-error: #ef4444;
   --color-error-light: rgba(239, 68, 68, 0.1);
 
-  /* Subject Palette */
-  --color-subject-1: #6366F1;
-  --color-subject-2: #8B5CF6;
-  --color-subject-3: #06B6D4;
-  --color-subject-4: #F59E0B;
-  --color-subject-5: #EC4899;
-  --color-subject-6: #14B8A6;
+  /* ── 4. 과목 팔레트 (톤온톤 배치) ── */
+  --color-subject-1: #66c2c5;
+  --color-subject-2: #48b1b4;
+  --color-subject-3: #309b9f;
+  --color-subject-4: #237b7e;
+  --color-subject-5: #1a5c5e;
+  --color-subject-6: #145051;
 
-  /* Typography */
+  /* ── 5. 타이포그래피 (폰트) ── */
   --font-display: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-code: 'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Spacing (4px grid) */
+  /* ── 6. 레이아웃 토큰 (간격 및 모서리) ── */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -47,28 +49,16 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
-  --space-20: 80px;
-
-  /* Border Radius */
-  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* Shadows */
+  /* ── 7. 효과 (그림자 및 전환) ── */
   --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.08);
-  --shadow-primary-glow: 0 4px 12px rgba(99, 102, 241, 0.35);
-  --shadow-dropdown: 0 10px 40px rgba(0, 0, 0, 0.12);
-  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.12);
-
-  /* Transitions */
-  --transition-fast: 150ms ease;
+  --shadow-focus: 0 0 0 3px rgba(48, 155, 159, 0.15);
   --transition-base: 200ms ease;
-  --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Reset & Base ── */
