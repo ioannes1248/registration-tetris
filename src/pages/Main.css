@@ -109,7 +109,7 @@
   color: #64748b;
 }
 
-/* 5. 가이드 스텝 (오버랩 카드 영역 - 🔥 크기 조정) */
+/* 5. 가이드 스텝 (오버랩 카드 영역 - 크기 조정) */
 .guide-steps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -127,11 +127,11 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
-  min-height: 240px; /* 🔥 카드 최소 높이를 지정하여 모두 일정한 넉넉한 크기 유지 */
+  min-height: 240px; /* 카드 최소 높이를 지정하여 모두 일정한 넉넉한 크기 유지 */
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 🔥 호버 시 점선이 학교 상징색 실선으로 변하며 부드럽게 떠오르는 효과 */
+/* 호버 시 점선이 학교 상징색 실선으로 변하며 부드럽게 떠오르는 효과 */
 .guide-step-card:hover {
   transform: translateY(-8px);
   border-color: var(--color-primary);
