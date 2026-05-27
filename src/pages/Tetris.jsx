@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AppHeader from '../components/AppHeader'
 import { supabase } from '../supabaseClient'
 import './Tetris.css'
 
@@ -169,11 +170,6 @@ const Tetris = () => {
     await supabase.auth.signOut()
   }
 
-  const getInitial = (email) => {
-    if (!email) return '?'
-    return email.charAt(0).toUpperCase()
-  }
-
   const toggleFreeDay = (day) => setFreeDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
   const toggleTimePref = (id) => setTimePref(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])
   const removeRequiredCourse = (course) => setRequiredCourses(prev => prev.filter(c => c !== course))
@@ -259,30 +255,7 @@ const Tetris = () => {
 
   return (
     <div className="dashboard">
-      <nav className="nav">
-        <div className="nav-brand tetris-clickable-brand" onClick={() => navigate('/main')}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <rect x="1" y="1" width="8" height="8" rx="2" fill="var(--color-primary)" opacity="0.9"/>
-            <rect x="11" y="1" width="8" height="8" rx="2" fill="var(--color-subject-3)" opacity="0.7"/>
-            <rect x="1" y="11" width="8" height="8" rx="2" fill="var(--color-subject-5)" opacity="0.6"/>
-            <rect x="11" y="11" width="8" height="8" rx="2" fill="var(--color-subject-2)" opacity="0.8"/>
-          </svg>
-          <span>공강</span>테트리스
-        </div>
-
-        <ul className="nav-links tetris-nav-links">
-          <li className="nav-link" onClick={() => navigate('/main')}>홈</li>
-          <li className="nav-link nav-link-active">시간표 편성</li>
-        </ul>
-
-        <div className="flex gap-3 tetris-nav-actions">
-          <div className="user-badge">
-            <div className="user-avatar">{getInitial(userEmail)}</div>
-            <span className="tetris-user-email">{userEmail}</span>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>로그아웃</button>
-        </div>
-      </nav>
+      <AppHeader active="tetris" userEmail={userEmail} onLogout={handleLogout} />
 
       <div className="dashboard-content">
         <div className="container" style={{ width: '100%', maxWidth: '1800px', padding: '0 40px' }}>

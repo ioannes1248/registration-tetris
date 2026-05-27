@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AppHeader from '../components/AppHeader'
 import { supabase } from '../supabaseClient'
 import './Main.css'
 
@@ -93,12 +94,6 @@ const Main = () => {
     //  여기서 signOut()을 부르면 흐름도 2-B의 감시자가 "로그아웃 감지" 하고 안내 역할을 해줍니다.
   }
 
-  // 이메일에서 아바타용 이니셜 추출 함수
-  const getInitial = (email) => {
-    if (!email) return '?'
-    return email.charAt(0).toUpperCase()
-  }
-
   // 흐름도 3-A: 정보를 검사하는 동안 잠깐 보여줄 로딩 화면
   if (loading) {
     return (
@@ -115,28 +110,7 @@ const Main = () => {
   return (
     <div className="dashboard">
       {/* 1. 상단 네비게이션 바 */}
-      <nav className="nav">
-        <div className="nav-brand">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ marginRight: '8px' }}>
-            <rect x="1" y="1" width="8" height="8" rx="2" fill="var(--color-primary)" />
-            <rect x="11" y="11" width="8" height="8" rx="2" fill="var(--color-subject-3)" />
-          </svg>
-          <span>공강</span>테트리스
-        </div>
-        
-        <div className="flex gap-4 flex-center">
-          <div className="user-badge">
-            <div className="user-avatar">{getInitial(userEmail)}</div>
-            <span>{userEmail}</span>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/courses')}>
-            과목 조회
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
-            로그아웃
-          </button>
-        </div>
-      </nav>
+      <AppHeader active="main" userEmail={userEmail} onLogout={handleLogout} />
 
       {/* 2. 히어로 섹션 (오버랩을 위한 높이 축소) */}
       <header 

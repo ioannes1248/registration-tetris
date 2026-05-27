@@ -1,0 +1,104 @@
+.app-header.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.app-header .nav-brand,
+.app-header-brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.13rem;
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.app-header .nav-brand span,
+.app-header-brand span {
+  color: var(--color-primary);
+}
+
+.app-header-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-header .nav-link {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.93rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.app-header .nav-link:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-text-primary);
+}
+
+.app-header .nav-link-active {
+  color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.app-header-actions {
+  align-items: center;
+}
+
+.app-header .user-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+  background-color: var(--color-primary-light);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.app-header .user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-primary), #8B5CF6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.app-header-user-email {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .app-header.nav {
+    padding: 0 var(--space-4);
+  }
+}
