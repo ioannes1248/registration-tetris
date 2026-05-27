@@ -45,7 +45,7 @@ const Main = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // 🔥 [버그 원천 차단] Main 진입 완료 시, 주소창에 숨어있는 이전 로그인 파라미터(?token=... 등)를 브라우저에서 완전히 삭제합니다.
+    //  [버그 원천 차단] Main 진입 완료 시, 주소창에 숨어있는 이전 로그인 파라미터(?token=... 등)를 브라우저에서 완전히 삭제합니다.
     if (window.location.search || window.location.hash.includes('?')) {
       const cleanHash = window.location.hash.split('?')[0]
       window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
@@ -90,7 +90,7 @@ const Main = () => {
   const handleLogout = async () => {
     window.sessionStorage.removeItem(GUEST_MODE_KEY)
     await supabase.auth.signOut() 
-    // 👉 여기서 signOut()을 부르면 흐름도 2-B의 감시자가 "로그아웃 감지!" 하고 알아서 안내 역할을 해줍니다.
+    //  여기서 signOut()을 부르면 흐름도 2-B의 감시자가 "로그아웃 감지" 하고 안내 역할을 해줍니다.
   }
 
   // 이메일에서 아바타용 이니셜 추출 함수
@@ -111,7 +111,7 @@ const Main = () => {
     )
   }
 
-  // 흐름도 3-B: 인증 시스템을 통과한 유저에게만 보여줄 '진짜' 메인 화면 (오버랩 UI)
+  // 흐름도 3-B: 인증 시스템을 통과한 유저에게만 보여줄 메인 화면 (오버랩 UI)
   return (
     <div className="dashboard">
       {/* 1. 상단 네비게이션 바 */}
