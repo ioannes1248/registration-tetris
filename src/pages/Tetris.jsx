@@ -255,7 +255,12 @@ const Tetris = () => {
 
   return (
     <div className="dashboard">
-      <AppHeader active="tetris" userEmail={userEmail} onLogout={handleLogout} />
+      <AppHeader
+        active="tetris"
+        userEmail={userEmail}
+        isGuest={userEmail === GUEST_EMAIL}
+        onLogout={handleLogout}
+      />
 
       <div className="dashboard-content">
         <div className="container" style={{ width: '100%', maxWidth: '1800px', padding: '0 40px' }}>

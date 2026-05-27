@@ -110,7 +110,12 @@ const Main = () => {
   return (
     <div className="dashboard">
       {/* 1. 상단 네비게이션 바 */}
-      <AppHeader active="main" userEmail={userEmail} onLogout={handleLogout} />
+      <AppHeader
+        active="main"
+        userEmail={userEmail}
+        isGuest={userEmail === GUEST_EMAIL}
+        onLogout={handleLogout}
+      />
 
       {/* 2. 히어로 섹션 (오버랩을 위한 높이 축소) */}
       <header 
