@@ -207,7 +207,7 @@ const Tetris = () => {
     setSelectedDept('전체')
   }
 
-  // 🔥 [업그레이드 1] 스마트 이수구분 매칭 함수
+  // [업그레이드 1] 스마트 이수구분 매칭 함수
   const matchCourseType = (courseType, selectedBtn) => {
     if (selectedBtn === '전체') return true
     if (!courseType) return false
@@ -220,7 +220,7 @@ const Tetris = () => {
     return courseType.includes(selectedBtn)
   }
 
-  // 🔥 [업그레이드 2] 선택된 대분류에 속하는 부서 목록 동적 추출 후 가나다순 정렬
+  // [업그레이드 2] 선택된 대분류에 속하는 부서 목록 동적 추출 후 가나다순 정렬
   const availableDepts = ['전체', ...Array.from(new Set(
     dbCourses
       .filter(c => matchCourseType(c['이수구분'], selectedType))
@@ -232,7 +232,7 @@ const Tetris = () => {
     return a.localeCompare(b)
   })
 
-  // 🔥 [업그레이드 3] 3단 필터 (대분류 -> 소분류 -> 검색어) 최종 적용
+  // [업그레이드 3] 3단 필터 (대분류 -> 소분류 -> 검색어) 최종 적용
   const filteredCourses = dbCourses.filter(course => {
     const isTypeMatch = matchCourseType(course['이수구분'], selectedType)
     const isDeptMatch = selectedDept === '전체' || course['부서'] === selectedDept
