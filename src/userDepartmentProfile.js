@@ -4,22 +4,13 @@ export const COURSE_DEPARTMENTS_TABLE = 'courses_2026_spring'
 export const USER_DEPARTMENTS_TABLE = 'user_department_preferences'
 
 const DEPARTMENT_PAGE_SIZE = 1000
-const MAJOR_METADATA_KEY = 'major_department'
-const MINOR_METADATA_KEY = 'minor_department'
+
+const EMPTY_PROFILE = { majorDepartment: '', minorDepartment: '' }
 
 const normalizeDepartment = (value) => {
   if (!value) return ''
   return String(value).trim()
 }
-
-const getMetadataProfile = (user) => ({
-  majorDepartment: normalizeDepartment(
-    user?.user_metadata?.[MAJOR_METADATA_KEY] || user?.user_metadata?.majorDepartment,
-  ),
-  minorDepartment: normalizeDepartment(
-    user?.user_metadata?.[MINOR_METADATA_KEY] || user?.user_metadata?.minorDepartment,
-  ),
-})
 
 export const fetchDepartmentOptions = async () => {
   const departments = []
@@ -50,11 +41,8 @@ export const fetchDepartmentOptions = async () => {
 }
 
 export const fetchUserDepartmentProfile = async (email) => {
-  const { data: userData } = await supabase.auth.getUser()
-  const metadataProfile = getMetadataProfile(userData?.user)
-
   if (!email) {
-    return metadataProfile
+    return { ...EMPTY_PROFILE }
   }
 
   const { data, error } = await supabase
@@ -64,12 +52,12 @@ export const fetchUserDepartmentProfile = async (email) => {
     .maybeSingle()
 
   if (error || !data) {
-    return metadataProfile
+    return { ...EMPTY_PROFILE }
   }
 
   return {
-    majorDepartment: normalizeDepartment(data.major_department) || metadataProfile.majorDepartment,
-    minorDepartment: normalizeDepartment(data.minor_department) || metadataProfile.minorDepartment,
+    majorDepartment: normalizeDepartment(data.major_department),
+    minorDepartment: normalizeDepartment(data.minor_department),
   }
 }
 
@@ -94,11 +82,6 @@ export const saveUserDepartmentProfile = async ({ majorDepartment, minorDepartme
     minor_department: profile.minorDepartment || null,
   }
 
-  const metadataPayload = {
-    [MAJOR_METADATA_KEY]: profile.majorDepartment || null,
-    [MINOR_METADATA_KEY]: profile.minorDepartment || null,
-  }
-
   const { error: tableError } = await supabase
     .from(USER_DEPARTMENTS_TABLE)
     .upsert(dbPayload, { onConflict: 'email' })
@@ -107,9 +90,5 @@ export const saveUserDepartmentProfile = async ({ majorDepartment, minorDepartme
     return { error: tableError }
   }
 
-  const { error: metadataError } = await supabase.auth.updateUser({
-    data: metadataPayload,
-  })
-
-  return { profile, metadataError }
+  return { profile }
 }
