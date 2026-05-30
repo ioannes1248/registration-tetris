@@ -76,7 +76,10 @@ const GUEST_EMAIL = 'guest@cku.ac.kr'
  * =========================================================
  */
 
+// 요일 상수 정의 (월요일부터 일요일까지)
 const DAYS = ['월', '화', '수', '목', '금', '토', '일']
+
+// 시간표의 교시별 시간대 정의 (1교시부터 13교시까지)
 const TIMES = [
   { period: '1교시', time: '09:00' },
   { period: '2교시', time: '10:00' },
@@ -92,6 +95,8 @@ const TIMES = [
   { period: '12교시', time: '20:00' },
   { period: '13교시', time: '21:00' }
 ]
+
+// 제외 설정이 가능한 전체 교시 목록
 const EXCLUDED_PERIODS = [
   '1교시',
   '2교시',
@@ -108,44 +113,66 @@ const EXCLUDED_PERIODS = [
   '13교시'
 ]
 
-// 이수구분 카테고리
+// 이수구분 카테고리 (우측 개설 과목 조회 필터링에 사용)
 const COURSE_TYPES = [
   '전체', '전공', '직무전공', '소단위전공', '교양필수', '교양선택', 
   '복수전공', '연계전공', '부전공', '교직', 'ROTC/현장실습', '일반선택', '사이버'
 ]
 
+/**
+ * Tetris 컴포넌트
+ * 사용자가 공강 요일, 제외 시간대, 학점 범위, 필수 과목을 입력하여 
+ * 가능한 대학 시간표의 조합을 설계하고, 개설된 교과목 목록을 조회할 수 있는 메인 기능 페이지입니다.
+ */
 const Tetris = () => {
-  const navigate = useNavigate()
-  const [userEmail, setUserEmail] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [mounted, setMounted] = useState(false)
+  const navigate = useNavigate() // 페이지 강제 이동 및 라우팅을 위한 훅
+  
+  // --- 사용자 인증 및 로딩 상태 ---
+  const [userEmail, setUserEmail] = useState('') // 로그인한 사용자 이메일 (게스트는 guest@cku.ac.kr)
+  const [loading, setLoading] = useState(true)     // DB 데이터 및 세션 로딩 상태
+  const [mounted, setMounted] = useState(false)    // 애니메이션 효과를 위한 마운트 완료 여부 State
 
-  const [freeDays, setFreeDays] = useState([])
-  const [excludedPeriods, setExcludedPeriods] = useState(['10교시', '11교시', '12교시', '13교시'])
-  const [minCredits, setMinCredits] = useState(15)
-  const [maxCredits, setMaxCredits] = useState(21)
-  const [requiredCourse, setRequiredCourse] = useState('')
-  const [requiredCourses, setRequiredCourses] = useState([])
-  const [forbiddenCells, setForbiddenCells] = useState(new Set())
+  // --- 시간표 설정 관련 State ---
+  const [freeDays, setFreeDays] = useState([])     // 사용자가 선택한 공강 희망 요일 목록 (예: ['금'])
+  const [excludedPeriods, setExcludedPeriods] = useState(['10교시', '11교시', '12교시', '13교시']) // 기본 제외할 야간 시간대
+  const [minCredits, setMinCredits] = useState(15) // 최소 신청 학점
+  const [maxCredits, setMaxCredits] = useState(21) // 최대 신청 학점
+  const [requiredCourse, setRequiredCourse] = useState('') // 필수 과목 입력창의 텍스트
+  const [requiredCourses, setRequiredCourses] = useState([]) // 등록된 필수 과목명 배열
+  const [forbiddenCells, setForbiddenCells] = useState(new Set()) // 시간표 그리드 상에서 개별 클릭하여 금지한 셀 세트 ("행번호-열번호" 포맷)
 
-  // DB 연동 및 필터링 State
-  const [dbCourses, setDbCourses] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedType, setSelectedType] = useState('전체') 
-  const [selectedDept, setSelectedDept] = useState('전체') 
+  // --- DB(Supabase) 데이터 및 필터링 관련 State ---
+  const [dbCourses, setDbCourses] = useState([])   // Supabase의 'test table'에서 조회한 전체 개설 과목 목록
+  const [searchTerm, setSearchTerm] = useState('') // 과목명/교수명 검색어 문자열
+  const [selectedType, setSelectedType] = useState('전체') // 현재 선택된 대분류 이수구분
+  const [selectedDept, setSelectedDept] = useState('전체') // 현재 선택된 소분류 학과/부서
 
+  /**
+   * [useEffect 1] 마운트 애니메이션 효과 트리거
+   * 컴포넌트 렌더링 직후 `mounted`를 true로 세팅하여 페이드인 효과를 제공합니다.
+   */
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50)
     return () => clearTimeout(t)
   }, [])
 
+  /**
+   * [useEffect 2] 인증 세션 확인 및 Supabase 개설 과목 데이터 가져오기
+   * 1. URL에 포함된 불필요한 쿼리나 해시 파라미터가 있을 경우 주소창을 정리합니다.
+   * 2. Supabase 세션을 확인하거나 브라우저 세션스토리지의 게스트 모드 플래그를 검사하여 로그인 여부를 확인합니다.
+   *    - 미인증 시 인트로('/')로 튕겨내 보안을 유지합니다.
+   * 3. Supabase의 'test table' 테이블로부터 전체 과목 데이터를 비동기 조회하여 `dbCourses` 상태에 저장합니다.
+   * 4. Supabase의 인증 상태 변화(`onAuthStateChange`)를 실시간으로 감시하여 로그아웃 등이 감지되면 인트로로 이동시킵니다.
+   */
   useEffect(() => {
+    // 1. URL 정리 (OAuth 로그인 시 주소창에 남는 토큰 파라미터 등 제거)
     if (window.location.search || window.location.hash.includes('?')) {
       const cleanHash = window.location.hash.split('?')[0]
       window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
     }
 
     const fetchSessionAndData = async () => {
+      // 2. 로그인 정보 및 게스트 모드 확인
       const { data: { session } } = await supabase.auth.getSession()
       const isGuestMode = window.sessionStorage.getItem(GUEST_MODE_KEY) === 'true'
 
@@ -154,11 +181,12 @@ const Tetris = () => {
       } else if (isGuestMode) {
         setUserEmail(GUEST_EMAIL)
       } else {
+        // 인증정보가 없고 게스트 모드도 아니면 인트로 페이지로 리다이렉트
         navigate('/', { replace: true })
         return 
       }
 
-      // 테이블명 'test'에서 데이터 가져오기
+      // 3. Supabase에서 전체 개설 과목 정보 조회
       const { data: coursesData, error } = await supabase
         .from('test table') 
         .select('*')
@@ -169,13 +197,15 @@ const Tetris = () => {
         setDbCourses(coursesData)
       }
 
-      setLoading(false)
+      setLoading(false) // 로딩 상태 해제
     }
 
     fetchSessionAndData()
 
+    // 4. Supabase 인증 변경 이벤트 감시 리스너 설정
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
+        // 로그아웃 되었더라도 게스트 모드 세션이 켜져있다면 유예
         if (window.sessionStorage.getItem(GUEST_MODE_KEY) === 'true') {
           setUserEmail(GUEST_EMAIL)
           return
@@ -186,26 +216,44 @@ const Tetris = () => {
       }
     })
 
+    // Clean-up: 컴포넌트 소멸 시 이벤트 리스너 해제
     return () => subscription.unsubscribe()
   }, [navigate])
 
+  /**
+   * 로그아웃 처리 함수
+   * 세션스토리지 게스트 정보 삭제 후 Supabase 로그아웃을 요청합니다.
+   */
   const handleLogout = async () => {
     window.sessionStorage.removeItem(GUEST_MODE_KEY)
     await supabase.auth.signOut()
   }
 
+  // --- 시간표 설정 관련 조작 이벤트 핸들러 ---
+  
+  // 공강 희망 요일 토글 (목록에 있으면 제거, 없으면 추가)
   const toggleFreeDay = (day) => setFreeDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
+  
+  // 제외할 교시 시간대 토글
   const toggleExcludedPeriod = (period) => setExcludedPeriods(prev => prev.includes(period) ? prev.filter(p => p !== period) : [...prev, period])
+  
+  // 필수 과목 태그 클릭 시 필수 목록에서 제거
   const removeRequiredCourse = (course) => setRequiredCourses(prev => prev.filter(c => c !== course))
   
+  // 텍스트 인풋 입력을 통한 필수 과목 수동 추가
   const addRequiredCourse = () => {
     const trimmed = requiredCourse.trim()
     if (trimmed && !requiredCourses.includes(trimmed)) {
       setRequiredCourses(prev => [...prev, trimmed])
-      setRequiredCourse('')
+      setRequiredCourse('') // 인풋 값 리셋
     }
   }
 
+  /**
+   * 시간표 개별 셀 클릭 시 금지 셀 지정/해제 핸들러
+   * 행 인덱스(rowIdx)와 열 인덱(colIdx)로 고유 키(`rowIdx-colIdx`)를 만든 뒤 Set에 추가/삭제합니다.
+   * React의 State 불변성을 유지하기 위해 신규 Set을 복사 생성하여 업데이트합니다.
+   */
   const toggleForbiddenCell = (rowIdx, colIdx) => {
     const key = `${rowIdx}-${colIdx}`
     setForbiddenCells(prev => {
@@ -216,23 +264,30 @@ const Tetris = () => {
     })
   }
 
+  // 우측 개설 과목 리스트에서 과목 카드 클릭 시 필수과목에 자동 추가 기능
   const handleAddCourseFromList = (courseName) => {
     if (!requiredCourses.includes(courseName)) {
       setRequiredCourses(prev => [...prev, courseName])
     }
   }
 
+  // 이수구분 탭(대분류) 클릭 시 상태 변경 및 소분류(학과) 필터 '전체'로 리셋
   const handleTypeChange = (type) => {
     setSelectedType(type)
     setSelectedDept('전체')
   }
 
-  // [업그레이드 1] 스마트 이수구분 매칭 함수
+  /**
+   * [필터링 헬퍼 1] 스마트 이수구분 매칭 함수
+   * 사용자가 클릭한 대분류 이수구분 필터 버튼값(`selectedBtn`)과 DB의 실제 이수구분 문자열(`courseType`)을 대조합니다.
+   * '전공' 버튼 클릭 시 '전공필수', '전공선택' 등을 모두 포함하도록 보완하고, 
+   * 교양필수/교양선택 등의 약칭(교필, 교선)도 부분 일치하도록 구현하여 필터링의 정확도를 높였습니다.
+   */
   const matchCourseType = (courseType, selectedBtn) => {
     if (selectedBtn === '전체') return true
     if (!courseType) return false
     
-    // DB의 값이 '전공필수', '전공선택'일 때 '전공' 버튼을 누르면 통과
+    // 예: '전공'을 선택한 경우 DB 값에 '전공'이 들어간 모든 것(전공선택, 전공필수 등)을 통과시킴
     if (selectedBtn === '전공' && courseType.includes('전공')) return true
     if (selectedBtn === '교양필수' && (courseType.includes('교양필수') || courseType.includes('교필'))) return true
     if (selectedBtn === '교양선택' && (courseType.includes('교양선택') || courseType.includes('교선'))) return true
@@ -240,23 +295,33 @@ const Tetris = () => {
     return courseType.includes(selectedBtn)
   }
 
-  // [업그레이드 2] 선택된 대분류에 속하는 부서 목록 동적 추출 후 가나다순 정렬
+  /**
+   * [필터링 헬퍼 2] 선택된 대분류에 속하는 학과/부서 목록 동적 추출 및 정렬
+   * 사용자가 선택한 이수구분 필터에 알맞은 교과목들만 대상으로 하여, 
+   * 해당 과목들의 '부서' 필드 데이터를 Set으로 중복 제거하고 가나다순으로 정렬하여 드롭다운 리스트를 구성합니다.
+   */
   const availableDepts = ['전체', ...Array.from(new Set(
     dbCourses
       .filter(c => matchCourseType(c['이수구분'], selectedType))
       .map(c => c['부서'])
-      .filter(Boolean)
+      .filter(Boolean) // null 또는 빈 문자열 제외
   ))].sort((a, b) => {
     if (a === '전체') return -1
     if (b === '전체') return 1
-    return a.localeCompare(b)
+    return a.localeCompare(b, 'ko-KR')
   })
 
-  // [업그레이드 3] 3단 필터 (대분류 -> 소분류 -> 검색어) 최종 적용
+  /**
+   * [필터링 헬퍼 3] 최종 과목 목록 필터링
+   * 1. 이수구분 일치 검사 (`matchCourseType`)
+   * 2. 학과/부서 일치 검사 (`selectedDept === '전체'`이거나 실제 부서 일치 시)
+   * 3. 검색어(교과목명 또는 담당교수명) 부분 일치 검사
+   */
   const filteredCourses = dbCourses.filter(course => {
     const isTypeMatch = matchCourseType(course['이수구분'], selectedType)
     const isDeptMatch = selectedDept === '전체' || course['부서'] === selectedDept
 
+    // 검색어가 입력되지 않은 경우 대분류와 학과만 일치하면 통과
     if (!searchTerm) return isTypeMatch && isDeptMatch
 
     const searchLower = searchTerm.toLowerCase()
@@ -266,6 +331,7 @@ const Tetris = () => {
     return isTypeMatch && isDeptMatch && (matchName || matchProf)
   })
 
+  // --- 화면 데이터 로딩 중 뷰(View) ---
   if (loading) {
     return (
       <div className="page-center tetris-page">
@@ -277,8 +343,10 @@ const Tetris = () => {
     )
   }
 
+  // --- 메인 대시보드 뷰(View) 렌더링 ---
   return (
     <div className="dashboard">
+      {/* 최상단 앱 헤더바 컴포넌트 */}
       <AppHeader
         active="tetris"
         userEmail={userEmail}
@@ -289,11 +357,13 @@ const Tetris = () => {
       <div className="dashboard-content">
         <div className="container" style={{ width: '100%', maxWidth: '1800px', padding: '0 40px' }}>
           
+          {/* 타이틀 및 헤더 영역 (마운트 후 애니메이션 작동) */}
           <div className={`tetris-page-header ${mounted ? 'animate-in' : 'tetris-hidden'}`}>
             <h2 className="tetris-section-heading">시간표 편성</h2>
             <p className="tetris-page-description">원하는 공강 시간과 과목을 설정하면 가능한 조합을 자동으로 찾아드립니다.</p>
           </div>
 
+          {/* 3단 분할 레이아웃 대시보드 (조건 설정 / 시간표 그리드 / 과목 조회) */}
           <div 
             className={`dashboard-grid ${mounted ? 'animate-in delay-2' : 'tetris-hidden'}`}
             style={{ gridTemplateColumns: '320px 1fr 380px', gap: '30px', alignItems: 'stretch' }} 
@@ -303,12 +373,14 @@ const Tetris = () => {
             <div className="panel" style={{ height: '890px', display: 'flex', flexDirection: 'column' }}>
               <div className="panel-title">⚙️ 조건 설정</div>
 
+              {/* 공강 희망 요일 선택 칩 버튼들 */}
               <div className="tetris-field-group">
                 <label className="field-label">공강 원하는 요일</label>
                 <div className="flex gap-2 tetris-wrap-row">
                   {DAYS.slice(0, 5).map((day) => (
                     <button
                       key={day}
+                      // 해당 요일이 freeDays에 미포함되어 있으면 활성 스타일 적용 (즉, 수업 가능/선택됨 상태)
                       className={`chip tetris-chip-button ${!freeDays.includes(day) ? 'chip-active' : ''}`}
                       onClick={() => toggleFreeDay(day)}
                     >
@@ -318,12 +390,14 @@ const Tetris = () => {
                 </div>
               </div>
 
+              {/* 시간표 자동 생성 시 필터링할 제외 교시 칩 버튼들 */}
               <div className="tetris-field-group">
                 <label className="field-label">제외 시간대</label>
                 <div className="flex gap-2 tetris-wrap-row">
                   {EXCLUDED_PERIODS.map((period) => (
                     <button
                       key={period}
+                      // 제외 리스트에 포함되어 있지 않은 교시들을 기본 활성 칩으로 표시
                       className={`chip tetris-chip-button ${!excludedPeriods.includes(period) ? 'chip-active' : ''}`}
                       onClick={() => toggleExcludedPeriod(period)}
                     >
@@ -333,6 +407,7 @@ const Tetris = () => {
                 </div>
               </div>
 
+              {/* 신청 학점 범위 (최소 ~ 최대) 입력 란 */}
               <div className="tetris-field-group">
                 <label className="field-label">학점 범위</label>
                 <div className="flex gap-2 tetris-credit-row">
@@ -343,6 +418,7 @@ const Tetris = () => {
                 </div>
               </div>
 
+              {/* 반드시 들어가야 할 필수과목 수동 입력 및 기등록 태그 표시 영역 */}
               <div className="tetris-last-field-group">
                 <label className="field-label">필수 과목</label>
                 <div className="flex gap-2">
@@ -355,6 +431,7 @@ const Tetris = () => {
                   />
                   <button className="btn btn-secondary btn-md" onClick={addRequiredCourse}>추가</button>
                 </div>
+                {/* 필수과목 태그 칩 리스트 */}
                 {requiredCourses.length > 0 && (
                   <div className="flex gap-2 tetris-required-tags" style={{ marginTop: '8px', flexWrap: 'wrap' }}>
                     {requiredCourses.map((c) => (
@@ -366,6 +443,7 @@ const Tetris = () => {
                 )}
               </div>
 
+              {/* 조합 생성 알고리즘 실행 버튼 */}
               <button className="btn btn-primary btn-md tetris-full-button" style={{ width: '100%', marginTop: '20px' }}>
                 시간표 자동 생성
               </button>
@@ -376,6 +454,7 @@ const Tetris = () => {
               <div className="tetris-timetable-header">
                 <div className="panel-title tetris-panel-title-inline">📊 시간표</div>
                 <div className="flex gap-2">
+                  {/* 금지 상태로 지정된 칸 갯수 알림 */}
                   {forbiddenCells.size > 0 && (
                     <span className="chip chip-error">금지 {forbiddenCells.size}칸</span>
                   )}
@@ -383,33 +462,42 @@ const Tetris = () => {
                 </div>
               </div>
 
+              {/* 시간표 메인 그리드 테이블 */}
               <div className="timetable-grid" style={{ flex: 1 }}>
+                {/* 첫 번째 칸 (빈 모퉁이 셀) */}
                 <div className="header-cell"></div>
+                {/* 요일 헤더 행 출력 */}
                 {DAYS.map((day) => (
                   <div className={`header-cell ${freeDays.includes(day) ? 'header-cell-free' : ''}`} key={day}>
                     <div>{day}</div>
+                    {/* 해당 요일이 공강 희망 상태일 경우 배지 노출 */}
                     <span className="tetris-free-day-label" style={{ visibility: freeDays.includes(day) ? 'visible' : 'hidden' }}>
                       공강
                     </span>
                   </div>
                 ))}
 
+                {/* 각 교시(행)별로 데이터 셀을 순회하며 렌더링 */}
                 {TIMES.map((time, rowIdx) => (
                   <React.Fragment key={time.period}>
+                    {/* 좌측 교시 라벨 셀 */}
                     <div className="time-cell">
                       <div style={{ fontWeight: 'bold', fontSize: '0.73rem', color: 'var(--color-text-primary)' }}>{time.period}</div>
                       <div style={{ fontSize: '0.63rem', color: 'var(--color-neutral)', marginTop: '2px' }}>{time.time}</div>
                     </div>
+                    {/* 해당 교시의 월~일 데이터 셀들 */}
                     {DAYS.map((_, colIdx) => {
                       const key = `${rowIdx}-${colIdx}`
-                      const isForbidden = forbiddenCells.has(key)
-                      const isFreeDay = freeDays.includes(DAYS[colIdx])
+                      const isForbidden = forbiddenCells.has(key)       // 개별 금지 지정 여부
+                      const isFreeDay = freeDays.includes(DAYS[colIdx]) // 해당 요일 공강 지정 여부
                       return (
                         <div
+                          // 금지되었거나 공강인 경우 특수 클래스를 주어 배경색을 칠함
                           className={`data-cell tetris-clickable-cell ${isForbidden ? 'data-cell-forbidden' : ''} ${isFreeDay ? 'data-cell-freeday' : ''}`}
                           key={key}
-                          onClick={() => toggleForbiddenCell(rowIdx, colIdx)}
+                          onClick={() => toggleForbiddenCell(rowIdx, colIdx)} // 클릭하면 금지 설정 토글
                         >
+                          {/* 개별 금지된 칸일 경우 ✕ 블록 마크 추가 */}
                           {isForbidden && <div className="forbidden-block">✕</div>}
                         </div>
                       )
@@ -428,7 +516,7 @@ const Tetris = () => {
                 </div>
               </div>
               
-              {/* 대분류 필터 (가로 스크롤) */}
+              {/* 대분류 필터 (가로 스크롤 가능한 이수구분 카테고리 칩 버튼군) */}
               <div style={{ 
                 display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px', 
                 marginBottom: '12px', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' 
@@ -455,7 +543,7 @@ const Tetris = () => {
                 ))}
               </div>
 
-              {/* 소분류 필터(부서) & 검색창 */}
+              {/* 소분류 필터(선택한 이수구분에 매칭된 부서/학과 목록) & 검색 인풋 창 */}
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                 <select 
                   className="input" 
@@ -478,7 +566,7 @@ const Tetris = () => {
                 />
               </div>
 
-              {/* 과목 리스트 렌더링 */}
+              {/* 필터링 결과 매칭 과목 리스트 렌더링 영역 */}
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '8px' }}>
                 {filteredCourses.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: '0.9rem' }}>
@@ -488,7 +576,7 @@ const Tetris = () => {
                   filteredCourses.map((course, idx) => (
                     <div 
                       key={course.id || idx} 
-                      onClick={() => handleAddCourseFromList(course['교과목명'])}
+                      onClick={() => handleAddCourseFromList(course['교과목명'])} // 과목 클릭 시 자동 필수과목 등록
                       style={{
                         padding: '14px',
                         border: '1px solid #e2e8f0',
@@ -508,6 +596,7 @@ const Tetris = () => {
                         e.currentTarget.style.boxShadow = 'none'
                       }}
                     >
+                      {/* 과목 이름 및 이수구분 배지 */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#1e293b', lineHeight: '1.3' }}>
                           {course['교과목명']}
@@ -518,6 +607,7 @@ const Tetris = () => {
                           </span>
                         </div>
                       </div>
+                      {/* 과목 추가 상세 정보 (개설 학과/부서, 분반, 담당교수명, 수업 시간 및 장소) */}
                       <div style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <span>🏢 {course['부서'] || course['단과대학'] || '소속 미정'} 
                               {course['분반코드'] ? ` [${course['분반코드']}분반]` : ''}
@@ -533,7 +623,7 @@ const Tetris = () => {
 
           </div>
 
-          {/* ── 하단: 생성된 시간표 후보 목록 ── */}
+          {/* ── 하단: 생성된 시간표 후보 목록 (자동 생성 버튼 클릭 시 결과 카드들이 표시될 자리) ── */}
           <div className={`tetris-result-section ${mounted ? 'animate-in delay-3' : 'tetris-hidden'}`} style={{ marginTop: '24px' }}>
             <div className="flex flex-between tetris-result-header">
               <h3>생성된 시간표 조합</h3>
@@ -554,3 +644,4 @@ const Tetris = () => {
 }
 
 export default Tetris
+
