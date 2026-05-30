@@ -76,12 +76,36 @@ const GUEST_EMAIL = 'guest@cku.ac.kr'
  * =========================================================
  */
 
-const DAYS = ['월', '화', '수', '목', '금']
-const TIMES = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
-const TIME_PREFS = [
-  { id: 'morning', label: '오전 (09~12)', desc: '9:00 ~ 12:00' },
-  { id: 'afternoon', label: '오후 (13~16)', desc: '13:00 ~ 16:00' },
-  { id: 'evening', label: '저녁 (17~)', desc: '17:00 이후' },
+const DAYS = ['월', '화', '수', '목', '금', '토', '일']
+const TIMES = [
+  { period: '1교시', time: '09:00' },
+  { period: '2교시', time: '10:00' },
+  { period: '3교시', time: '11:00' },
+  { period: '4교시', time: '12:00' },
+  { period: '5교시', time: '13:00' },
+  { period: '6교시', time: '14:00' },
+  { period: '7교시', time: '15:00' },
+  { period: '8교시', time: '16:00' },
+  { period: '9교시', time: '17:00' },
+  { period: '10교시', time: '18:00' },
+  { period: '11교시', time: '19:00' },
+  { period: '12교시', time: '20:00' },
+  { period: '13교시', time: '21:00' }
+]
+const EXCLUDED_PERIODS = [
+  '1교시',
+  '2교시',
+  '3교시',
+  '4교시',
+  '5교시',
+  '6교시',
+  '7교시',
+  '8교시',
+  '9교시',
+  '10교시',
+  '11교시',
+  '12교시',
+  '13교시'
 ]
 
 // 이수구분 카테고리
@@ -97,7 +121,7 @@ const Tetris = () => {
   const [mounted, setMounted] = useState(false)
 
   const [freeDays, setFreeDays] = useState([])
-  const [timePref, setTimePref] = useState([])
+  const [excludedPeriods, setExcludedPeriods] = useState(['10교시', '11교시', '12교시', '13교시'])
   const [minCredits, setMinCredits] = useState(15)
   const [maxCredits, setMaxCredits] = useState(21)
   const [requiredCourse, setRequiredCourse] = useState('')
@@ -171,7 +195,7 @@ const Tetris = () => {
   }
 
   const toggleFreeDay = (day) => setFreeDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])
-  const toggleTimePref = (id) => setTimePref(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])
+  const toggleExcludedPeriod = (period) => setExcludedPeriods(prev => prev.includes(period) ? prev.filter(p => p !== period) : [...prev, period])
   const removeRequiredCourse = (course) => setRequiredCourses(prev => prev.filter(c => c !== course))
   
   const addRequiredCourse = () => {
@@ -272,20 +296,20 @@ const Tetris = () => {
 
           <div 
             className={`dashboard-grid ${mounted ? 'animate-in delay-2' : 'tetris-hidden'}`}
-            style={{ gridTemplateColumns: '320px 1fr 380px', gap: '30px' }} 
+            style={{ gridTemplateColumns: '320px 1fr 380px', gap: '30px', alignItems: 'stretch' }} 
           >
             
             {/* ── 1. 좌측: 조건 설정 패널 ── */}
-            <div className="panel">
+            <div className="panel" style={{ height: '890px', display: 'flex', flexDirection: 'column' }}>
               <div className="panel-title">⚙️ 조건 설정</div>
 
               <div className="tetris-field-group">
                 <label className="field-label">공강 원하는 요일</label>
                 <div className="flex gap-2 tetris-wrap-row">
-                  {DAYS.map((day) => (
+                  {DAYS.slice(0, 5).map((day) => (
                     <button
                       key={day}
-                      className={`chip tetris-chip-button ${freeDays.includes(day) ? 'chip-active' : ''}`}
+                      className={`chip tetris-chip-button ${!freeDays.includes(day) ? 'chip-active' : ''}`}
                       onClick={() => toggleFreeDay(day)}
                     >
                       {day}
@@ -295,15 +319,15 @@ const Tetris = () => {
               </div>
 
               <div className="tetris-field-group">
-                <label className="field-label">선호 시간대</label>
-                <div className="flex flex-col gap-2">
-                  {TIME_PREFS.map((pref) => (
+                <label className="field-label">제외 시간대</label>
+                <div className="flex gap-2 tetris-wrap-row">
+                  {EXCLUDED_PERIODS.map((period) => (
                     <button
-                      key={pref.id}
-                      className={`chip tetris-chip-button tetris-time-pref-button ${timePref.includes(pref.id) ? 'chip-active' : ''}`}
-                      onClick={() => toggleTimePref(pref.id)}
+                      key={period}
+                      className={`chip tetris-chip-button ${!excludedPeriods.includes(period) ? 'chip-active' : ''}`}
+                      onClick={() => toggleExcludedPeriod(period)}
                     >
-                      {pref.label}
+                      {period}
                     </button>
                   ))}
                 </div>
@@ -348,7 +372,7 @@ const Tetris = () => {
             </div>
 
             {/* ── 2. 중앙: 시간표 그리드 ── */}
-            <div className="timetable" style={{ height: 'fit-content' }}>
+            <div className="timetable" style={{ height: '890px', display: 'flex', flexDirection: 'column' }}>
               <div className="tetris-timetable-header">
                 <div className="panel-title tetris-panel-title-inline">📊 시간표</div>
                 <div className="flex gap-2">
@@ -359,18 +383,23 @@ const Tetris = () => {
                 </div>
               </div>
 
-              <div className="timetable-grid">
+              <div className="timetable-grid" style={{ flex: 1 }}>
                 <div className="header-cell"></div>
                 {DAYS.map((day) => (
                   <div className={`header-cell ${freeDays.includes(day) ? 'header-cell-free' : ''}`} key={day}>
-                    {day}
-                    {freeDays.includes(day) && <span className="tetris-free-day-label">공강</span>}
+                    <div>{day}</div>
+                    <span className="tetris-free-day-label" style={{ visibility: freeDays.includes(day) ? 'visible' : 'hidden' }}>
+                      공강
+                    </span>
                   </div>
                 ))}
 
                 {TIMES.map((time, rowIdx) => (
-                  <React.Fragment key={time}>
-                    <div className="time-cell">{time}</div>
+                  <React.Fragment key={time.period}>
+                    <div className="time-cell">
+                      <div style={{ fontWeight: 'bold', fontSize: '0.73rem', color: 'var(--color-text-primary)' }}>{time.period}</div>
+                      <div style={{ fontSize: '0.63rem', color: 'var(--color-neutral)', marginTop: '2px' }}>{time.time}</div>
+                    </div>
                     {DAYS.map((_, colIdx) => {
                       const key = `${rowIdx}-${colIdx}`
                       const isForbidden = forbiddenCells.has(key)
@@ -391,7 +420,7 @@ const Tetris = () => {
             </div>
 
             {/* ── 3. 우측: 개설 과목 버튼 리스트 ── */}
-            <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)', minHeight: '600px', paddingRight: '16px' }}>
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '890px', paddingRight: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div className="panel-title" style={{ margin: 0 }}>📚 개설 과목 조회</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 'bold' }}>

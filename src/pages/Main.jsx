@@ -148,7 +148,7 @@ const Main = () => {
           <div className="guide-step-card">
             <div className="guide-step-number" style={{ backgroundColor: 'var(--color-subject-1)' }}>1</div>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '8px' }}>조건 설정</h3>
-            <p style={{ fontSize: '0.85rem' }}>원하는 공강 요일, 선호하는 시간대, 그리고 수강할 학점 범위를 자유롭게 설정하세요.</p>
+            <p style={{ fontSize: '0.85rem' }}>원하는 공강 요일, 제외할 시간대, 그리고 수강할 학점 범위를 자유롭게 설정하세요.</p>
           </div>
 
           <div className="guide-step-card">

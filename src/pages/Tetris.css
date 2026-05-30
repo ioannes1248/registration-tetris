@@ -101,6 +101,7 @@
 .tetris-credit-text {
   color: var(--color-neutral);
   font-size: 0.87rem;
+  white-space: nowrap;
 }
 
 .tetris-inline-error {
