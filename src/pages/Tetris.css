@@ -115,6 +115,11 @@
 .tetris-required-tag {
   gap: var(--space-1);
   cursor: pointer;
+  /* span에서 button으로 변경되었으므로 기본 버튼 크롬 제거 (배경/글자색은 .chip-active가 담당) */
+  border: none;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .tetris-full-button {
@@ -148,6 +153,21 @@
   cursor: pointer;
 }
 
+/* 시간표 셀이 <div>에서 <button>으로 변경되었으므로 기본 버튼 크롬을 제거하고 셀을 채웁니다.
+   배경은 transparent로 두되, 금지/공강 셀 배경(!important)이 우선 적용됩니다.
+   하단/우측 테두리는 .timetable-grid .data-cell이 담당하므로 상/좌측 기본 테두리만 제거합니다. */
+button.tetris-clickable-cell {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  font: inherit;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
 .data-cell-forbidden {
   background-color: var(--color-error-light) !important;
 }
@@ -169,7 +189,8 @@
 }
 
 .data-cell-freeday {
-  background-color: rgba(16, 185, 129, 0.03);
+  /* 버튼 셀의 transparent 배경보다 우선하도록 !important 사용 (.data-cell-forbidden과 동일 패턴) */
+  background-color: rgba(16, 185, 129, 0.03) !important;
 }
 
 .tetris-result-section {
@@ -205,4 +226,63 @@
   margin-top: var(--space-2);
   color: var(--color-neutral);
   font-size: 0.8rem;
+}
+
+/* ── 우측 개설 과목 조회 패널: 대분류(이수구분) 필터 행 ── */
+.tetris-type-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 이수구분 필터 칩 버튼 (선택 상태는 .tetris-type-chip-active로 토글) */
+.tetris-type-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  background-color: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  /* transition: all 대신 실제 변하는 속성만 지정 */
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.tetris-type-chip-active {
+  font-weight: bold;
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+/* 개설 과목 카드 (div → button 시맨틱 변경 + 기본 버튼 크롬 제거) */
+.tetris-course-card {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  font-family: inherit;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #fff;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  /* transition: all 대신 hover에서 변하는 속성만 지정 */
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tetris-course-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(48, 155, 159, 0.1);
 }

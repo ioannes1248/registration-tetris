@@ -13,6 +13,14 @@ const GUEST_EMAIL = 'guest@cku.ac.kr'
 // ----- TEMP GUEST LOGIN END ---------------------------------
 // ============================================================
 
+// 로그아웃 실행 함수. 컴포넌트의 지역 상태에 의존하지 않으므로 모듈 스코프에 두어
+// 렌더링마다 재생성되지 않도록 합니다.
+// signOut() 호출 시 흐름도 2-B의 onAuthStateChange 감시자가 로그아웃을 감지해 /login으로 안내합니다.
+const handleLogout = async () => {
+  window.sessionStorage.removeItem(GUEST_MODE_KEY)
+  await supabase.auth.signOut()
+}
+
 /**
  * =========================================================
  * [Main.jsx 컴포넌트 흐름도]
@@ -87,13 +95,6 @@ const Main = () => {
     return () => subscription.unsubscribe()
   }, [navigate])
 
-  // 로그아웃을 실행하는 함수
-  const handleLogout = async () => {
-    window.sessionStorage.removeItem(GUEST_MODE_KEY)
-    await supabase.auth.signOut() 
-    //  여기서 signOut()을 부르면 흐름도 2-B의 감시자가 "로그아웃 감지" 하고 안내 역할을 해줍니다.
-  }
-
   // 흐름도 3-A: 정보를 검사하는 동안 잠깐 보여줄 로딩 화면
   if (loading) {
     return (
@@ -130,7 +131,7 @@ const Main = () => {
 
         {/* 스크롤 다운 유도 화살표 */}
         <div style={{ position: 'absolute', bottom: '120px', color: 'var(--color-neutral)', opacity: 0.7 }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'fadeInUp 1.5s infinite alternate' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'fadeInUp 0.9s infinite alternate' }}>
             <path d="M12 5v14M19 12l-7 7-7-7"/>
           </svg>
         </div>
@@ -175,8 +176,9 @@ const Main = () => {
         <section className="main-cta-section animate-in delay-4">
           <div className="main-cta-content flex flex-col flex-center gap-6">
             <h2 style={{ color: '#ffffff', fontSize: '1.8rem' }}>이제 나만의 시간표를 만들어볼까요?</h2>
-            <button 
-              className="btn btn-lg" 
+            <button
+              type="button"
+              className="btn btn-lg"
               style={{ backgroundColor: '#ffffff', color: 'var(--color-primary)' }}
               onClick={() => navigate('/tetris')}
             >

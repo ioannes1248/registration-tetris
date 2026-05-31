@@ -6,6 +6,12 @@ window.addEventListener('hashchange', (event) => {
   window.__RAW_URL__ = event.newURL
 })
 
+// 인증 관련 파라미터 키 집합. 루프 내 반복 조회 시 O(1) 탐색을 위해 배열 대신 Set으로 정의합니다.
+const AUTH_PARAM_KEYS = new Set([
+  'access_token', 'refresh_token', 'expires_in',
+  'token_type', 'type', 'error', 'error_description', 'error_code',
+])
+
 // ==============================================================
 // 🚑 [신규 버그 픽스] 매직 링크 클릭 시 하얀 화면 & 엉뚱한 페이지 이동 방지
 // 1. Supabase가 에러나 토큰을 해시(#)로 보내어 HashRouter를 고장내는 것을 방어합니다.
@@ -23,17 +29,12 @@ window.addEventListener('hashchange', (event) => {
     
     let isModified = false;
     for (const part of parts) {
-      if (part.includes('=')) {
-        const [key, ...values] = part.split('=');
+      const [key, ...values] = part.split('=');
+      // part에 '='가 없으면 key가 part 전체가 되어 AUTH_PARAM_KEYS에 매칭되지 않으므로 자연히 건너뜁니다.
+      if (AUTH_PARAM_KEYS.has(key)) {
         const value = values.join('=');
-        const targetKeys = [
-          'access_token', 'refresh_token', 'expires_in', 
-          'token_type', 'type', 'error', 'error_description', 'error_code'
-        ];
-        if (targetKeys.includes(key)) {
-          searchParams.set(key, value);
-          isModified = true;
-        }
+        searchParams.set(key, value);
+        isModified = true;
       }
     }
 

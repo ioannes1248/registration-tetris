@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useReducer, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import './Login.css'
@@ -23,6 +23,39 @@ const GUEST_EMAIL = 'guest@cku.ac.kr'
  * 4. 현재 렌더링 상태에 따른 조건부 화면 노출 (View 분기)
  * =========================================================
  */
+
+// 흐름도 1: URL 파라미터 파싱 (컴포넌트 지역 상태에 의존하지 않으므로 모듈 스코프에 정의)
+const getSearchParams = () => {
+  let search = window.location.search
+  if (!search && window.location.hash.includes('?')) {
+    search = '?' + window.location.hash.split('?')[1]
+  }
+  return new URLSearchParams(search)
+}
+
+// 흐름도 4번 제어용: 서로 연관된 인증 흐름 뷰 상태(전역 인증 에러 / 매직링크 발송 여부 / 폼 입력 에러)를
+// 하나의 리듀서로 통합 관리합니다.
+const initialAuthStatus = { authError: null, linkSent: false, formError: '' }
+
+function authStatusReducer(state, action) {
+  switch (action.type) {
+    case 'AUTH_ERROR':
+      return { ...state, authError: action.message }
+    case 'CLEAR_AUTH_ERROR':
+      return { ...state, authError: null }
+    case 'LINK_SENT':
+      return { ...state, linkSent: true }
+    case 'BACK_TO_START':
+      return { ...state, linkSent: false }
+    case 'FORM_ERROR':
+      return { ...state, formError: action.message }
+    case 'CLEAR_FORM_ERROR':
+      return { ...state, formError: '' }
+    default:
+      return state
+  }
+}
+
 export default function Login() {
   const navigate = useNavigate()
 
@@ -30,22 +63,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
 
-  // 흐름도 1: URL 파라미터 파싱
-  const getSearchParams = () => {
-    let search = window.location.search
-    if (!search && window.location.hash.includes('?')) {
-      search = '?' + window.location.hash.split('?')[1]
-    }
-    return new URLSearchParams(search)
-  }
-
-  const params = getSearchParams()
-  const initialError = params.get('error_description')
-
-  // 흐름도 4번을 제어하기 위한 렌더링 상태값
-  const [authError, setAuthError] = useState(initialError) 
-  const [linkSent, setLinkSent] = useState(false)
-  const [loginFormError, setLoginFormError] = useState('') 
+  // URL 파라미터에서 읽은 초기 인증 에러를 인증 흐름 상태의 초기값으로 사용
+  const initialError = getSearchParams().get('error_description')
+  const [authStatus, dispatchStatus] = useReducer(
+    authStatusReducer,
+    initialError,
+    (error) => ({ ...initialAuthStatus, authError: error })
+  )
 
   // 애니메이션
   const [mounted, setMounted] = useState(false)
@@ -75,7 +99,7 @@ export default function Login() {
           window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
           navigate('/main', { replace: true })
         } else {
-          setAuthError(error ? error.message : '세션 설정 실패')
+          dispatchStatus({ type: 'AUTH_ERROR', message: error ? error.message : '세션 설정 실패' })
         }
       })
     }
@@ -88,7 +112,7 @@ export default function Login() {
         })
         .then(({ error }) => {
           if (error) {
-            setAuthError(error.message)
+            dispatchStatus({ type: 'AUTH_ERROR', message: error.message })
           } else {
             const cleanHash = window.location.hash.split('?')[0]
             window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
@@ -120,10 +144,10 @@ export default function Login() {
   // 흐름도 3: 로그인 폼 제출 시 매직 링크 발송 처리 이벤트
   const handleLogin = async (event) => {
     event.preventDefault()
-    setLoginFormError('') 
-    
+    dispatchStatus({ type: 'CLEAR_FORM_ERROR' })
+
     if (!email.endsWith('@cku.ac.kr')) {
-      setLoginFormError('가톨릭관동대학교 이메일(@cku.ac.kr)만 사용할 수 있습니다.')
+      dispatchStatus({ type: 'FORM_ERROR', message: '가톨릭관동대학교 이메일(@cku.ac.kr)만 사용할 수 있습니다.' })
       return
     }
 
@@ -137,9 +161,9 @@ export default function Login() {
     })
     
     if (error) {
-      setLoginFormError(error.error_description || error.message) 
+      dispatchStatus({ type: 'FORM_ERROR', message: error.error_description || error.message })
     } else {
-      setLinkSent(true) 
+      dispatchStatus({ type: 'LINK_SENT' })
     }
     setLoading(false)
   }
@@ -154,19 +178,20 @@ export default function Login() {
   // ==========================================
 
   // View 1: 에러 발생 시
-  if (authError) {
+  if (authStatus.authError) {
     return (
       <div className="login-page">
         <div className={`login-card ${mounted ? 'animate-scale' : 'login-hidden'}`}>
           <div className="login-header">
             <h2 className="login-title" style={{ color: '#ef4444' }}>인증 실패</h2>
           </div>
-          <div className="login-message error">{authError}</div>
+          <div className="login-message error">{authStatus.authError}</div>
           <button
+            type="button"
             className="login-button"
             style={{ marginTop: '20px' }}
             onClick={() => {
-              setAuthError(null)
+              dispatchStatus({ type: 'CLEAR_AUTH_ERROR' })
               const cleanHash = window.location.hash.split('?')[0]
               window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
             }}
@@ -179,7 +204,7 @@ export default function Login() {
   }
 
   // View 2: 매직 링크가 사용자 메일로 무사히 발송되었을 시
-  if (linkSent) {
+  if (authStatus.linkSent) {
     return (
       <div className="login-page">
         <div className={`login-card ${mounted ? 'animate-scale' : 'login-hidden'}`}>
@@ -192,15 +217,17 @@ export default function Login() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button
+              type="button"
               className="login-button"
               onClick={() => window.open('https://mail.google.com/a/cku.ac.kr', '_blank')}
             >
               내 메일함 열기
             </button>
             <button
+              type="button"
               className="login-guest-button"
               onClick={() => {
-                setLinkSent(false)
+                dispatchStatus({ type: 'BACK_TO_START' })
                 setEmail('')
               }}
             >
@@ -226,19 +253,20 @@ export default function Login() {
           <form onSubmit={handleLogin} className="login-form">
             <input
               type="email"
-              className={`login-input ${loginFormError ? 'input-error' : ''}`}
+              className={`login-input ${authStatus.formError ? 'input-error' : ''}`}
               placeholder="학번@cku.ac.kr"
+              aria-label="가톨릭관동대학교 이메일"
               value={email}
               required
               onChange={(e) => {
                 setEmail(e.target.value)
-                if (loginFormError) setLoginFormError('')
+                if (authStatus.formError) dispatchStatus({ type: 'CLEAR_FORM_ERROR' })
               }}
             />
 
-            {loginFormError && (
+            {authStatus.formError && (
               <div className="login-message error">
-                {loginFormError}
+                {authStatus.formError}
               </div>
             )}
 
@@ -257,6 +285,7 @@ export default function Login() {
           {/* ----- TEMP GUEST LOGIN START ----- */}
           {/* ============================================================ */}
           <button
+            type="button"
             className="login-guest-button"
             onClick={handleGuestLogin}
           >
@@ -267,6 +296,7 @@ export default function Login() {
           {/* ============================================================ */}
 
           <button
+            type="button"
             className="login-guest-button"
             style={{ border: 'none', backgroundColor: 'transparent', marginTop: '5px' }}
             onClick={() => navigate('/')}

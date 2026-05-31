@@ -383,6 +383,26 @@ code {
   background-color: var(--color-primary-light);
 }
 
+/* 접근성: nav-brand / nav-link을 시맨틱 <button>으로 렌더링하되, 브라우저 기본 버튼 크롬을 제거해
+   기존 div/li와 동일한 모양을 유지합니다. */
+button.nav-brand,
+button.nav-link {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+button.nav-brand {
+  padding: 0;
+}
+
+button.nav-link {
+  /* .nav-link은 font-family를 지정하지 않으므로 본문 폰트를 상속받습니다. */
+  font-family: inherit;
+}
+
 /* ── Container ── */
 .container {
   max-width: 1280px;

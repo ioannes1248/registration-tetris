@@ -50,8 +50,12 @@ export const fetchDepartmentOptions = async () => {
       throw error // 에러 발생 시 호출부에 에러를 전파
     }
 
-    // 가져온 데이터를 텍스트 정규화한 뒤 departments 임시 배열에 합침 (filter(Boolean)로 null/빈 문자열 제거)
-    departments.push(...(data || []).map((row) => normalizeDepartment(row.department)).filter(Boolean))
+    // 가져온 데이터를 텍스트 정규화한 뒤 departments 임시 배열에 합침
+    // (flatMap으로 변환과 빈 값 필터링을 한 번의 순회로 처리)
+    departments.push(...(data || []).flatMap((row) => {
+      const name = normalizeDepartment(row.department)
+      return name ? [name] : []
+    }))
 
     // 수신된 데이터 개수가 한 페이지 설정 사이즈보다 작다면 더 이상 데이터가 없는 것이므로 루프 중단
     if (!data || data.length < DEPARTMENT_PAGE_SIZE) {

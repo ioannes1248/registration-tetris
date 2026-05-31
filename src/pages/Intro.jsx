@@ -42,7 +42,7 @@ const Intro = () => {
           <div className="intro-main-text">
             <p className="intro-subtitle">가톨릭관동대학교 수강 신청 도우미</p>
             <h1 className="intro-title">공강 테트리스</h1>
-            <button onClick={() => navigate('/login')} className="intro-start-button">
+            <button type="button" onClick={() => navigate('/login')} className="intro-start-button">
               시작하기
             </button>
           </div>
