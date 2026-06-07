@@ -29,10 +29,11 @@ const getInitial = (email) => {
  * [Props 설명]
  * @param {string} active - 현재 활성화된 메뉴 ('main' 또는 'tetris')
  * @param {string} userEmail - 로그인한 사용자의 이메일 주소
- * @param {function} onLogout - 로그아웃 버튼 클릭 시 실행할 콜백 함수
  * @param {boolean} isGuest - 현재 게스트 모드 로그인 여부 (기본값: false)
+ * @param {function} onDepartmentProfileChange - 전공/부전공 프로필 변경 시 실행할 콜백 함수
+ * @param {function} onLogout - 로그아웃 버튼 클릭 시 실행할 콜백 함수
  */
-const AppHeader = ({ active, userEmail, onLogout, isGuest = false }) => {
+const AppHeader = ({ active, userEmail, onLogout, isGuest = false, onDepartmentProfileChange }) => {
   const navigate = useNavigate() // 페이지 이동을 위한 react-router-dom 훅
   const departmentPanelRef = useRef(null) // 전공 설정 팝오버 영역 바깥 클릭을 감지하기 위한 ref
   
@@ -97,6 +98,7 @@ const AppHeader = ({ active, userEmail, onLogout, isGuest = false }) => {
       setMajorDepartment('')
       setMinorDepartment('')
       setDepartmentPanelOpen(false)
+      onDepartmentProfileChange?.({ majorDepartment: '', minorDepartment: '' })
       return
     }
 
@@ -113,6 +115,7 @@ const AppHeader = ({ active, userEmail, onLogout, isGuest = false }) => {
 
         setMajorDepartment(profile.majorDepartment)
         setMinorDepartment(profile.minorDepartment)
+        onDepartmentProfileChange?.(profile)
       } catch (error) {
         if (!ignore) {
           setDepartmentError(error?.message || '전공 정보를 불러오지 못했습니다.')
@@ -130,7 +133,7 @@ const AppHeader = ({ active, userEmail, onLogout, isGuest = false }) => {
     return () => {
       ignore = true
     }
-  }, [canManageDepartments, userEmail])
+  }, [canManageDepartments, onDepartmentProfileChange, userEmail])
 
   /**
    * [useEffect 2] 학과 목록(Options) 로딩
@@ -257,6 +260,7 @@ const AppHeader = ({ active, userEmail, onLogout, isGuest = false }) => {
     // 3. 저장 성공 시 상위 상태들을 최신화하고 메시지 노출 후 팝오버 닫음
     setMajorDepartment(profile.majorDepartment)
     setMinorDepartment(profile.minorDepartment)
+    onDepartmentProfileChange?.(profile)
     setProfileMessage('저장했습니다.')
     setProfileSaving(false)
     setDepartmentPanelOpen(false)
@@ -429,4 +433,3 @@ const AppHeader = ({ active, userEmail, onLogout, isGuest = false }) => {
 }
 
 export default AppHeader
-

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppHeader from '../components/AppHeader'
 import { supabase } from '../supabaseClient'
+import { fetchUserDepartmentProfile } from '../userDepartmentProfile'
 import './Tetris.css'
 
 // ============================================================
@@ -9,6 +10,8 @@ import './Tetris.css'
 // ============================================================
 const GUEST_MODE_KEY = 'registration-tetris:guest-mode'
 const GUEST_EMAIL = 'guest@cku.ac.kr'
+const COURSES_TABLE = 'test table'
+const COURSES_PAGE_SIZE = 1000
 // ============================================================
 
 /**
@@ -114,10 +117,118 @@ const EXCLUDED_PERIODS = [
 ]
 
 // 이수구분 카테고리 (우측 개설 과목 조회 필터링에 사용)
+const SECONDARY_MAJOR_TYPE = '복수/부전공'
+const SECONDARY_MAJOR_DB_TYPES = ['복수전공', '부전공']
+
 const COURSE_TYPES = [
   '전체', '전공', '직무전공', '소단위전공', '교양필수', '교양선택', 
-  '복수전공', '연계전공', '부전공', '교직', 'ROTC/현장실습', '일반선택', '사이버'
+  SECONDARY_MAJOR_TYPE, '연계전공', '교직', 'ROTC/현장실습', '일반선택', '사이버'
 ]
+
+const EMPTY_DEPARTMENT_PROFILE = { majorDepartment: '', minorDepartment: '' }
+
+const normalizeDepartmentName = (value) => {
+  if (!value) return ''
+  return String(value).trim()
+}
+
+const getCourseDepartment = (course) => normalizeDepartmentName(course?.['부서'] || course?.department)
+const getCourseType = (course) => normalizeDepartmentName(course?.['이수구분'] || course?.course_type)
+const getCourseName = (course) => normalizeDepartmentName(course?.['교과목명'] || course?.course_name)
+const getCourseCode = (course) => normalizeDepartmentName(
+  course?.['과목코드'] ||
+  course?.['교과목코드'] ||
+  course?.['학수번호'] ||
+  course?.course_code
+)
+const getCourseTime = (course) => normalizeDepartmentName(course?.['수업시간'] || course?.class_time)
+const getCoursePlace = (course) => normalizeDepartmentName(course?.['수업장소'] || course?.class_place)
+const getCourseTimeAndPlace = (course) => {
+  const time = getCourseTime(course)
+  const place = getCoursePlace(course)
+
+  if (time && place) return `${time} / ${place}`
+  return time || place || ''
+}
+const getCourseScheduleCode = (course) => course?.['수업시간코드'] ?? course?.time_code ?? course?.class_time_code
+const getCourseProfessor = (course) => normalizeDepartmentName(course?.['교수명'] || course?.professor)
+
+const COURSE_LIST_TYPES = {
+  preferred: 'preferred',
+  required: 'required',
+}
+
+const REQUIRED_COURSE_COLORS = [
+  'var(--color-subject-3)',
+  '#3b82f6',
+  '#8b5cf6',
+  '#f59e0b',
+  '#10b981',
+  '#ef4444',
+]
+
+const parseCourseScheduleCodes = (codeValue) => {
+  const seen = new Set()
+  const scheduleCells = []
+
+  const collectCodes = (value) => {
+    if (value === null || value === undefined || value === '') return
+
+    if (Array.isArray(value)) {
+      value.forEach(collectCodes)
+      return
+    }
+
+    if (typeof value === 'object') {
+      Object.values(value).forEach(collectCodes)
+      return
+    }
+
+    const codes = String(value).match(/\d{3}/g) || []
+
+    codes.forEach((codeText) => {
+      const code = Number(codeText)
+      const dayNumber = Math.floor(code / 100)
+      const period = code % 100
+      const day = DAYS[dayNumber - 1]
+      const key = `${day}-${period}`
+
+      if (!day || period < 1 || period > TIMES.length || seen.has(key)) return
+
+      seen.add(key)
+      scheduleCells.push({ day, period })
+    })
+  }
+
+  collectCodes(codeValue)
+  return scheduleCells
+}
+
+const fetchAllCourses = async () => {
+  const courses = []
+  let from = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from(COURSES_TABLE)
+      .select('*')
+      .range(from, from + COURSES_PAGE_SIZE - 1)
+
+    if (error) {
+      throw error
+    }
+
+    courses.push(...(data || []))
+
+    if (!data || data.length < COURSES_PAGE_SIZE) {
+      break
+    }
+
+    from += COURSES_PAGE_SIZE
+  }
+
+  return courses
+}
 
 /**
  * Tetris 컴포넌트
@@ -137,8 +248,12 @@ const Tetris = () => {
   const [excludedPeriods, setExcludedPeriods] = useState(['10교시', '11교시', '12교시', '13교시']) // 기본 제외할 야간 시간대
   const [minCredits, setMinCredits] = useState(15) // 최소 신청 학점
   const [maxCredits, setMaxCredits] = useState(21) // 최대 신청 학점
+  const [preferredCourse, setPreferredCourse] = useState('') // 선호 과목 입력창의 텍스트
+  const [preferredCourses, setPreferredCourses] = useState([]) // 등록된 선호 과목명 배열
   const [requiredCourse, setRequiredCourse] = useState('') // 필수 과목 입력창의 텍스트
   const [requiredCourses, setRequiredCourses] = useState([]) // 등록된 필수 과목명 배열
+  const [draggedCourseTag, setDraggedCourseTag] = useState(null) // 선호/필수 과목 간 이동 중인 태그 정보
+  const [scheduleConflictAlert, setScheduleConflictAlert] = useState(null) // 필수 과목 시간 충돌 알림 정보
   const [forbiddenCells, setForbiddenCells] = useState(new Set()) // 시간표 그리드 상에서 개별 클릭하여 금지한 셀 세트 ("행번호-열번호" 포맷)
 
   // --- DB(Supabase) 데이터 및 필터링 관련 State ---
@@ -146,6 +261,21 @@ const Tetris = () => {
   const [searchTerm, setSearchTerm] = useState('') // 과목명/교수명 검색어 문자열
   const [selectedType, setSelectedType] = useState('전체') // 현재 선택된 대분류 이수구분
   const [selectedDept, setSelectedDept] = useState('전체') // 현재 선택된 소분류 학과/부서
+  const [departmentProfile, setDepartmentProfile] = useState(EMPTY_DEPARTMENT_PROFILE) // 사용자가 선택한 전공/부전공 정보
+
+  const selectedMajorDepartment = normalizeDepartmentName(departmentProfile.majorDepartment)
+  const selectedMinorDepartment = normalizeDepartmentName(departmentProfile.minorDepartment)
+  const profileDepartments = useMemo(
+    () => [selectedMajorDepartment, selectedMinorDepartment].filter(Boolean),
+    [selectedMajorDepartment, selectedMinorDepartment]
+  )
+
+  const handleDepartmentProfileChange = useCallback((profile = EMPTY_DEPARTMENT_PROFILE) => {
+    setDepartmentProfile({
+      majorDepartment: normalizeDepartmentName(profile.majorDepartment),
+      minorDepartment: normalizeDepartmentName(profile.minorDepartment),
+    })
+  }, [])
 
   /**
    * [useEffect 1] 마운트 애니메이션 효과 트리거
@@ -178,8 +308,11 @@ const Tetris = () => {
 
       if (session?.user) {
         setUserEmail(session.user.email)
+        const profile = await fetchUserDepartmentProfile(session.user.email)
+        handleDepartmentProfileChange(profile)
       } else if (isGuestMode) {
         setUserEmail(GUEST_EMAIL)
+        handleDepartmentProfileChange(EMPTY_DEPARTMENT_PROFILE)
       } else {
         // 인증정보가 없고 게스트 모드도 아니면 인트로 페이지로 리다이렉트
         navigate('/', { replace: true })
@@ -187,14 +320,11 @@ const Tetris = () => {
       }
 
       // 3. Supabase에서 전체 개설 과목 정보 조회
-      const { data: coursesData, error } = await supabase
-        .from('test table') 
-        .select('*')
-      
-      if (error) {
-        console.error('과목 데이터를 불러오는 중 오류 발생:', error.message)
-      } else if (coursesData) {
+      try {
+        const coursesData = await fetchAllCourses()
         setDbCourses(coursesData)
+      } catch (error) {
+        console.error('과목 데이터를 불러오는 중 오류 발생:', error.message)
       }
 
       setLoading(false) // 로딩 상태 해제
@@ -208,17 +338,22 @@ const Tetris = () => {
         // 로그아웃 되었더라도 게스트 모드 세션이 켜져있다면 유예
         if (window.sessionStorage.getItem(GUEST_MODE_KEY) === 'true') {
           setUserEmail(GUEST_EMAIL)
+          handleDepartmentProfileChange(EMPTY_DEPARTMENT_PROFILE)
           return
         }
+        handleDepartmentProfileChange(EMPTY_DEPARTMENT_PROFILE)
         navigate('/', { replace: true })
       } else if (session?.user) {
         setUserEmail(session.user.email)
+        fetchUserDepartmentProfile(session.user.email)
+          .then(handleDepartmentProfileChange)
+          .catch(() => handleDepartmentProfileChange(EMPTY_DEPARTMENT_PROFILE))
       }
     })
 
     // Clean-up: 컴포넌트 소멸 시 이벤트 리스너 해제
     return () => subscription.unsubscribe()
-  }, [navigate])
+  }, [handleDepartmentProfileChange, navigate])
 
   /**
    * 로그아웃 처리 함수
@@ -229,6 +364,55 @@ const Tetris = () => {
     await supabase.auth.signOut()
   }
 
+  const courseByName = useMemo(() => {
+    const map = new Map()
+
+    dbCourses.forEach((course) => {
+      const courseName = getCourseName(course)
+      if (!courseName) return
+
+      const existingCourse = map.get(courseName)
+      if (!existingCourse || (!getCourseScheduleCode(existingCourse) && getCourseScheduleCode(course))) {
+        map.set(courseName, course)
+      }
+    })
+
+    return map
+  }, [dbCourses])
+
+  const getRequiredCourseScheduleCells = useCallback((courseName) => {
+    const matchedCourse = courseByName.get(courseName)
+    return parseCourseScheduleCodes(getCourseScheduleCode(matchedCourse))
+  }, [courseByName])
+
+  const findRequiredCourseConflict = useCallback((courseName) => {
+    const nextCells = getRequiredCourseScheduleCells(courseName)
+    if (nextCells.length === 0) return null
+
+    const nextCellKeys = new Set(nextCells.map(({ day, period }) => `${day}-${period}`))
+    const conflicts = []
+
+    requiredCourses.forEach((existingCourseName) => {
+      if (existingCourseName === courseName) return
+
+      getRequiredCourseScheduleCells(existingCourseName).forEach(({ day, period }) => {
+        if (nextCellKeys.has(`${day}-${period}`)) {
+          conflicts.push({
+            courseName: existingCourseName,
+            timeLabel: `${day}요일 ${period}교시`,
+          })
+        }
+      })
+    })
+
+    if (conflicts.length === 0) return null
+
+    return {
+      courseName,
+      conflicts,
+    }
+  }, [getRequiredCourseScheduleCells, requiredCourses])
+
   // --- 시간표 설정 관련 조작 이벤트 핸들러 ---
   
   // 공강 희망 요일 토글 (목록에 있으면 제거, 없으면 추가)
@@ -237,6 +421,18 @@ const Tetris = () => {
   // 제외할 교시 시간대 토글
   const toggleExcludedPeriod = (period) => setExcludedPeriods(prev => prev.includes(period) ? prev.filter(p => p !== period) : [...prev, period])
   
+  // 선호 과목 태그 클릭 시 선호 목록에서 제거
+  const removePreferredCourse = (course) => setPreferredCourses(prev => prev.filter(c => c !== course))
+  
+  // 텍스트 인풋 입력을 통한 선호 과목 수동 추가
+  const addPreferredCourse = () => {
+    const trimmed = preferredCourse.trim()
+    if (trimmed && !preferredCourses.includes(trimmed)) {
+      setPreferredCourses(prev => [...prev, trimmed])
+      setPreferredCourse('') // 인풋 값 리셋
+    }
+  }
+
   // 필수 과목 태그 클릭 시 필수 목록에서 제거
   const removeRequiredCourse = (course) => setRequiredCourses(prev => prev.filter(c => c !== course))
   
@@ -244,8 +440,15 @@ const Tetris = () => {
   const addRequiredCourse = () => {
     const trimmed = requiredCourse.trim()
     if (trimmed && !requiredCourses.includes(trimmed)) {
+      const conflict = findRequiredCourseConflict(trimmed)
+      if (conflict) {
+        setScheduleConflictAlert(conflict)
+        return
+      }
+
       setRequiredCourses(prev => [...prev, trimmed])
       setRequiredCourse('') // 인풋 값 리셋
+      setScheduleConflictAlert(null)
     }
   }
 
@@ -264,11 +467,66 @@ const Tetris = () => {
     })
   }
 
-  // 우측 개설 과목 리스트에서 과목 카드 클릭 시 필수과목에 자동 추가 기능
+  // 우측 개설 과목 리스트에서 과목 카드 클릭 시 선호과목에 자동 추가 기능
   const handleAddCourseFromList = (courseName) => {
-    if (!requiredCourses.includes(courseName)) {
-      setRequiredCourses(prev => [...prev, courseName])
+    if (!preferredCourses.includes(courseName)) {
+      setPreferredCourses(prev => [...prev, courseName])
     }
+  }
+
+  const moveCourseTag = (courseName, sourceList, targetList) => {
+    if (!courseName || sourceList === targetList) return
+
+    if (targetList === COURSE_LIST_TYPES.preferred) {
+      setRequiredCourses(prev => prev.filter(course => course !== courseName))
+      setPreferredCourses(prev => prev.includes(courseName) ? prev : [...prev, courseName])
+      setScheduleConflictAlert(null)
+      return
+    }
+
+    const conflict = findRequiredCourseConflict(courseName)
+    if (conflict) {
+      setScheduleConflictAlert(conflict)
+      return
+    }
+
+    setPreferredCourses(prev => prev.filter(course => course !== courseName))
+    setRequiredCourses(prev => prev.includes(courseName) ? prev : [...prev, courseName])
+    setScheduleConflictAlert(null)
+  }
+
+  const handleCourseTagDragStart = (event, courseName, sourceList) => {
+    const payload = { courseName, sourceList }
+    setDraggedCourseTag(payload)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('application/json', JSON.stringify(payload))
+    event.dataTransfer.setData('text/plain', courseName)
+  }
+
+  const handleCourseTagDragOver = (event) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleCourseTagDrop = (event, targetList) => {
+    event.preventDefault()
+
+    let payload = draggedCourseTag
+    const rawPayload = event.dataTransfer.getData('application/json')
+    if (!payload && rawPayload) {
+      try {
+        payload = JSON.parse(rawPayload)
+      } catch {
+        payload = null
+      }
+    }
+
+    moveCourseTag(payload?.courseName, payload?.sourceList, targetList)
+    setDraggedCourseTag(null)
+  }
+
+  const handleCourseTagDragEnd = () => {
+    setDraggedCourseTag(null)
   }
 
   // 이수구분 탭(대분류) 클릭 시 상태 변경 및 소분류(학과) 필터 '전체'로 리셋
@@ -278,58 +536,119 @@ const Tetris = () => {
   }
 
   /**
-   * [필터링 헬퍼 1] 스마트 이수구분 매칭 함수
-   * 사용자가 클릭한 대분류 이수구분 필터 버튼값(`selectedBtn`)과 DB의 실제 이수구분 문자열(`courseType`)을 대조합니다.
-   * '전공' 버튼 클릭 시 '전공필수', '전공선택' 등을 모두 포함하도록 보완하고, 
+   * [필터링 헬퍼 1] 스마트 과목 분류 매칭 함수
+   * 전공/복수·부전공/일반선택은 사용자가 저장한 전공 프로필의 부서명 기준으로 우선 분류합니다.
+   * 전공 프로필이 없거나 다른 이수구분 버튼을 누른 경우에는 DB의 실제 이수구분 문자열을 대조합니다.
    * 교양필수/교양선택 등의 약칭(교필, 교선)도 부분 일치하도록 구현하여 필터링의 정확도를 높였습니다.
    */
-  const matchCourseType = (courseType, selectedBtn) => {
+  const matchCourseType = useCallback((course, selectedBtn) => {
     if (selectedBtn === '전체') return true
+    
+    const hasProfileFilter = profileDepartments.length > 0
+    const department = getCourseDepartment(course)
+    const isSecondaryMajorFilter = selectedBtn === SECONDARY_MAJOR_TYPE
+
+    if (hasProfileFilter && selectedBtn === '전공') {
+      return Boolean(selectedMajorDepartment) && department === selectedMajorDepartment
+    }
+
+    if (hasProfileFilter && isSecondaryMajorFilter && selectedMinorDepartment) {
+      return Boolean(selectedMinorDepartment) && department === selectedMinorDepartment
+    }
+
+    if (hasProfileFilter && selectedBtn === '일반선택') {
+      return !profileDepartments.includes(department)
+    }
+
+    const courseType = getCourseType(course)
     if (!courseType) return false
     
     // 예: '전공'을 선택한 경우 DB 값에 '전공'이 들어간 모든 것(전공선택, 전공필수 등)을 통과시킴
     if (selectedBtn === '전공' && courseType.includes('전공')) return true
+    if (isSecondaryMajorFilter && SECONDARY_MAJOR_DB_TYPES.some(type => courseType.includes(type))) return true
     if (selectedBtn === '교양필수' && (courseType.includes('교양필수') || courseType.includes('교필'))) return true
     if (selectedBtn === '교양선택' && (courseType.includes('교양선택') || courseType.includes('교선'))) return true
     
     return courseType.includes(selectedBtn)
+  }, [profileDepartments, selectedMajorDepartment, selectedMinorDepartment])
+
+  const getCourseTypeButtonLabel = (type) => {
+    if (type === '전공' && selectedMajorDepartment) return `전공(${selectedMajorDepartment})`
+    if (type === SECONDARY_MAJOR_TYPE && selectedMinorDepartment) return `복수/부전공(${selectedMinorDepartment})`
+    return type
   }
 
   /**
    * [필터링 헬퍼 2] 선택된 대분류에 속하는 학과/부서 목록 동적 추출 및 정렬
-   * 사용자가 선택한 이수구분 필터에 알맞은 교과목들만 대상으로 하여, 
+   * 사용자가 선택한 개인화 분류 또는 이수구분 필터에 알맞은 교과목들만 대상으로 하여, 
    * 해당 과목들의 '부서' 필드 데이터를 Set으로 중복 제거하고 가나다순으로 정렬하여 드롭다운 리스트를 구성합니다.
    */
-  const availableDepts = ['전체', ...Array.from(new Set(
+  const availableDepts = useMemo(() => ['전체', ...Array.from(new Set(
     dbCourses
-      .filter(c => matchCourseType(c['이수구분'], selectedType))
-      .map(c => c['부서'])
+      .filter(c => matchCourseType(c, selectedType))
+      .map(getCourseDepartment)
       .filter(Boolean) // null 또는 빈 문자열 제외
   ))].sort((a, b) => {
     if (a === '전체') return -1
     if (b === '전체') return 1
     return a.localeCompare(b, 'ko-KR')
-  })
+  }), [dbCourses, matchCourseType, selectedType])
+
+  useEffect(() => {
+    if (!availableDepts.includes(selectedDept)) {
+      setSelectedDept('전체')
+    }
+  }, [availableDepts, selectedDept])
 
   /**
    * [필터링 헬퍼 3] 최종 과목 목록 필터링
-   * 1. 이수구분 일치 검사 (`matchCourseType`)
+   * 1. 개인화 분류 또는 이수구분 일치 검사 (`matchCourseType`)
    * 2. 학과/부서 일치 검사 (`selectedDept === '전체'`이거나 실제 부서 일치 시)
    * 3. 검색어(교과목명 또는 담당교수명) 부분 일치 검사
    */
-  const filteredCourses = dbCourses.filter(course => {
-    const isTypeMatch = matchCourseType(course['이수구분'], selectedType)
-    const isDeptMatch = selectedDept === '전체' || course['부서'] === selectedDept
+  const filteredCourses = useMemo(() => dbCourses.filter(course => {
+    const isTypeMatch = matchCourseType(course, selectedType)
+    const isDeptMatch = selectedDept === '전체' || getCourseDepartment(course) === selectedDept
 
     // 검색어가 입력되지 않은 경우 대분류와 학과만 일치하면 통과
-    if (!searchTerm) return isTypeMatch && isDeptMatch
+    const searchLower = searchTerm.trim().toLowerCase()
+    if (!searchLower) return isTypeMatch && isDeptMatch
 
-    const searchLower = searchTerm.toLowerCase()
     const matchName = course['교과목명']?.toLowerCase().includes(searchLower)
     const matchProf = course['교수명']?.toLowerCase().includes(searchLower)
+    const matchCode = getCourseCode(course).toLowerCase().includes(searchLower)
     
-    return isTypeMatch && isDeptMatch && (matchName || matchProf)
-  })
+    return isTypeMatch && isDeptMatch && (matchName || matchProf || matchCode)
+  }), [dbCourses, matchCourseType, searchTerm, selectedDept, selectedType])
+
+  const requiredCourseBlocksByCell = useMemo(() => {
+    const blocksByCell = new Map()
+
+    requiredCourses.forEach((courseName, courseIndex) => {
+      const matchedCourse = courseByName.get(courseName)
+      const timeAndPlace = getCourseTimeAndPlace(matchedCourse)
+      const scheduleCells = getRequiredCourseScheduleCells(courseName)
+
+      scheduleCells.forEach(({ day, period }) => {
+        const rowIdx = period - 1
+        const colIdx = DAYS.indexOf(day)
+        if (rowIdx < 0 || rowIdx >= TIMES.length || colIdx < 0) return
+
+        const cellKey = `${rowIdx}-${colIdx}`
+        const cellBlocks = blocksByCell.get(cellKey) || []
+
+        cellBlocks.push({
+          courseIndex,
+          courseName,
+          professor: getCourseProfessor(matchedCourse),
+          timeAndPlace,
+        })
+        blocksByCell.set(cellKey, cellBlocks)
+      })
+    })
+
+    return blocksByCell
+  }, [courseByName, getRequiredCourseScheduleCells, requiredCourses])
 
   // --- 화면 데이터 로딩 중 뷰(View) ---
   if (loading) {
@@ -343,6 +662,12 @@ const Tetris = () => {
     )
   }
 
+  const conflictDetailText = scheduleConflictAlert
+    ? scheduleConflictAlert.conflicts
+      .map((conflict) => `${conflict.courseName} ${conflict.timeLabel}`)
+      .join(', ')
+    : ''
+
   // --- 메인 대시보드 뷰(View) 렌더링 ---
   return (
     <div className="dashboard">
@@ -351,8 +676,54 @@ const Tetris = () => {
         active="tetris"
         userEmail={userEmail}
         isGuest={userEmail === GUEST_EMAIL}
+        onDepartmentProfileChange={handleDepartmentProfileChange}
         onLogout={handleLogout}
       />
+
+      {scheduleConflictAlert && (
+        <div className="tetris-top-alert" role="alert" aria-live="assertive">
+          <div>
+            <strong>시간표가 겹칩니다.</strong>
+            <span>
+              {scheduleConflictAlert.courseName} 과목은 {conflictDetailText}와 시간이 겹쳐 필수 과목에 추가할 수 없습니다.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setScheduleConflictAlert(null)}
+          >
+            닫기
+          </button>
+        </div>
+      )}
+
+      {scheduleConflictAlert && (
+        <div className="tetris-modal-backdrop" role="presentation">
+          <div className="tetris-conflict-modal" role="dialog" aria-modal="true" aria-labelledby="schedule-conflict-title">
+            <h3 id="schedule-conflict-title">시간표가 겹칩니다</h3>
+            <p>
+              {scheduleConflictAlert.courseName} 과목을 필수 과목으로 옮길 수 없습니다.
+            </p>
+            <div className="tetris-conflict-list">
+              {scheduleConflictAlert.conflicts.map((conflict) => (
+                <span key={`${conflict.courseName}-${conflict.timeLabel}`} className="chip chip-error">
+                  {conflict.courseName} · {conflict.timeLabel}
+                </span>
+              ))}
+            </div>
+            <div className="tetris-conflict-modal-actions">
+              <button
+                type="button"
+                className="btn btn-primary btn-md"
+                onClick={() => setScheduleConflictAlert(null)}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="dashboard-content">
         <div className="container" style={{ width: '100%', maxWidth: '1800px', padding: '0 40px' }}>
@@ -373,78 +744,129 @@ const Tetris = () => {
             <div className="panel" style={{ height: '890px', display: 'flex', flexDirection: 'column' }}>
               <div className="panel-title">⚙️ 조건 설정</div>
 
-              {/* 공강 희망 요일 선택 칩 버튼들 */}
-              <div className="tetris-field-group">
-                <label className="field-label">공강 원하는 요일</label>
-                <div className="flex gap-2 tetris-wrap-row">
-                  {DAYS.slice(0, 5).map((day) => (
-                    <button
-                      key={day}
-                      // 해당 요일이 freeDays에 미포함되어 있으면 활성 스타일 적용 (즉, 수업 가능/선택됨 상태)
-                      className={`chip tetris-chip-button ${!freeDays.includes(day) ? 'chip-active' : ''}`}
-                      onClick={() => toggleFreeDay(day)}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 시간표 자동 생성 시 필터링할 제외 교시 칩 버튼들 */}
-              <div className="tetris-field-group">
-                <label className="field-label">제외 시간대</label>
-                <div className="flex gap-2 tetris-wrap-row">
-                  {EXCLUDED_PERIODS.map((period) => (
-                    <button
-                      key={period}
-                      // 제외 리스트에 포함되어 있지 않은 교시들을 기본 활성 칩으로 표시
-                      className={`chip tetris-chip-button ${!excludedPeriods.includes(period) ? 'chip-active' : ''}`}
-                      onClick={() => toggleExcludedPeriod(period)}
-                    >
-                      {period}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 신청 학점 범위 (최소 ~ 최대) 입력 란 */}
-              <div className="tetris-field-group">
-                <label className="field-label">학점 범위</label>
-                <div className="flex gap-2 tetris-credit-row">
-                  <input type="number" className="input tetris-credit-input" value={minCredits} min={1} max={maxCredits} onChange={(e) => setMinCredits(Number(e.target.value))} />
-                  <span className="tetris-credit-text">~</span>
-                  <input type="number" className="input tetris-credit-input" value={maxCredits} min={minCredits} max={24} onChange={(e) => setMaxCredits(Number(e.target.value))} />
-                  <span className="tetris-credit-text">학점</span>
-                </div>
-              </div>
-
-              {/* 반드시 들어가야 할 필수과목 수동 입력 및 기등록 태그 표시 영역 */}
-              <div className="tetris-last-field-group">
-                <label className="field-label">필수 과목</label>
-                <div className="flex gap-2">
-                  <input
-                    className="input"
-                    placeholder="우측 리스트 클릭 또는 직접 입력"
-                    value={requiredCourse}
-                    onChange={(e) => setRequiredCourse(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addRequiredCourse()}
-                  />
-                  <button className="btn btn-secondary btn-md" onClick={addRequiredCourse}>추가</button>
-                </div>
-                {/* 필수과목 태그 칩 리스트 */}
-                {requiredCourses.length > 0 && (
-                  <div className="flex gap-2 tetris-required-tags" style={{ marginTop: '8px', flexWrap: 'wrap' }}>
-                    {requiredCourses.map((c) => (
-                      <span key={c} className="chip chip-active tetris-required-tag" onClick={() => removeRequiredCourse(c)} style={{ cursor: 'pointer' }}>
-                        {c} ✕
-                      </span>
+              <div className="tetris-condition-scroll">
+                {/* 공강 희망 요일 선택 칩 버튼들 */}
+                <div className="tetris-field-group">
+                  <label className="field-label">공강 원하는 요일</label>
+                  <div className="flex gap-2 tetris-wrap-row">
+                    {DAYS.slice(0, 5).map((day) => (
+                      <button
+                        key={day}
+                        // 해당 요일이 freeDays에 미포함되어 있으면 활성 스타일 적용 (즉, 수업 가능/선택됨 상태)
+                        className={`chip tetris-chip-button ${!freeDays.includes(day) ? 'chip-active' : ''}`}
+                        onClick={() => toggleFreeDay(day)}
+                      >
+                        {day}
+                      </button>
                     ))}
                   </div>
-                )}
+                </div>
+
+                {/* 시간표 자동 생성 시 필터링할 제외 교시 칩 버튼들 */}
+                <div className="tetris-field-group">
+                  <label className="field-label">제외 시간대</label>
+                  <div className="flex gap-2 tetris-wrap-row">
+                    {EXCLUDED_PERIODS.map((period) => (
+                      <button
+                        key={period}
+                        // 제외 리스트에 포함되어 있지 않은 교시들을 기본 활성 칩으로 표시
+                        className={`chip tetris-chip-button ${!excludedPeriods.includes(period) ? 'chip-active' : ''}`}
+                        onClick={() => toggleExcludedPeriod(period)}
+                      >
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 신청 학점 범위 (최소 ~ 최대) 입력 란 */}
+                <div className="tetris-field-group">
+                  <label className="field-label">학점 범위</label>
+                  <div className="flex gap-2 tetris-credit-row">
+                    <input type="number" className="input tetris-credit-input" value={minCredits} min={1} max={maxCredits} onChange={(e) => setMinCredits(Number(e.target.value))} />
+                    <span className="tetris-credit-text">~</span>
+                    <input type="number" className="input tetris-credit-input" value={maxCredits} min={minCredits} max={24} onChange={(e) => setMaxCredits(Number(e.target.value))} />
+                    <span className="tetris-credit-text">학점</span>
+                  </div>
+                </div>
+
+                {/* 선호과목 수동 입력 및 기등록 태그 표시 영역 */}
+                <div
+                  className={`tetris-field-group tetris-course-dropzone ${draggedCourseTag?.sourceList === COURSE_LIST_TYPES.required ? 'tetris-course-dropzone-active' : ''}`}
+                  onDragOver={handleCourseTagDragOver}
+                  onDrop={(event) => handleCourseTagDrop(event, COURSE_LIST_TYPES.preferred)}
+                >
+                  <label className="field-label">선호 과목</label>
+                  <div className="flex gap-2">
+                    <input
+                      className="input"
+                      placeholder="우측 리스트 클릭 또는 직접 입력"
+                      value={preferredCourse}
+                      onChange={(e) => setPreferredCourse(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addPreferredCourse()}
+                    />
+                    <button className="btn btn-secondary btn-md" onClick={addPreferredCourse}>추가</button>
+                  </div>
+                  {/* 선호과목 태그 칩 리스트 */}
+                  {preferredCourses.length > 0 && (
+                    <div className="flex gap-2 tetris-required-tags" style={{ marginTop: '8px', flexWrap: 'wrap' }}>
+                      {preferredCourses.map((c) => (
+                        <span
+                          key={c}
+                          className="chip chip-active tetris-required-tag"
+                          draggable
+                          onClick={() => removePreferredCourse(c)}
+                          onDragStart={(event) => handleCourseTagDragStart(event, c, COURSE_LIST_TYPES.preferred)}
+                          onDragEnd={handleCourseTagDragEnd}
+                          style={{ cursor: 'grab' }}
+                        >
+                          {c} ✕
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 반드시 들어가야 할 필수과목 수동 입력 및 기등록 태그 표시 영역 */}
+                <div
+                  className={`tetris-last-field-group tetris-course-dropzone ${draggedCourseTag?.sourceList === COURSE_LIST_TYPES.preferred ? 'tetris-course-dropzone-active' : ''}`}
+                  onDragOver={handleCourseTagDragOver}
+                  onDrop={(event) => handleCourseTagDrop(event, COURSE_LIST_TYPES.required)}
+                >
+                  <label className="field-label">필수 과목</label>
+                  <div className="flex gap-2">
+                    <input
+                      className="input"
+                      placeholder="반드시 포함할 과목 입력"
+                      value={requiredCourse}
+                      onChange={(e) => setRequiredCourse(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addRequiredCourse()}
+                    />
+                    <button className="btn btn-secondary btn-md" onClick={addRequiredCourse}>추가</button>
+                  </div>
+                  {/* 필수과목 태그 칩 리스트 */}
+                  {requiredCourses.length > 0 && (
+                    <div className="flex gap-2 tetris-required-tags" style={{ marginTop: '8px', flexWrap: 'wrap' }}>
+                      {requiredCourses.map((c) => (
+                        <span
+                          key={c}
+                          className="chip chip-active tetris-required-tag"
+                          draggable
+                          onClick={() => removeRequiredCourse(c)}
+                          onDragStart={(event) => handleCourseTagDragStart(event, c, COURSE_LIST_TYPES.required)}
+                          onDragEnd={handleCourseTagDragEnd}
+                          style={{ cursor: 'grab' }}
+                        >
+                          {c} ✕
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 조합 생성 알고리즘 실행 버튼 */}
-              <button className="btn btn-primary btn-md tetris-full-button" style={{ width: '100%', marginTop: '20px' }}>
+              <button className="btn btn-primary btn-md tetris-full-button tetris-generate-button">
                 시간표 자동 생성
               </button>
             </div>
@@ -457,6 +879,9 @@ const Tetris = () => {
                   {/* 금지 상태로 지정된 칸 갯수 알림 */}
                   {forbiddenCells.size > 0 && (
                     <span className="chip chip-error">금지 {forbiddenCells.size}칸</span>
+                  )}
+                  {requiredCourses.length > 0 && (
+                    <span className="chip chip-active">필수 {requiredCourses.length}과목</span>
                   )}
                   <span className="chip tetris-hint-chip">클릭하여 금지 시간 설정</span>
                 </div>
@@ -490,6 +915,7 @@ const Tetris = () => {
                       const key = `${rowIdx}-${colIdx}`
                       const isForbidden = forbiddenCells.has(key)       // 개별 금지 지정 여부
                       const isFreeDay = freeDays.includes(DAYS[colIdx]) // 해당 요일 공강 지정 여부
+                      const requiredCellCourses = requiredCourseBlocksByCell.get(key) || []
                       return (
                         <div
                           // 금지되었거나 공강인 경우 특수 클래스를 주어 배경색을 칠함
@@ -498,7 +924,24 @@ const Tetris = () => {
                           onClick={() => toggleForbiddenCell(rowIdx, colIdx)} // 클릭하면 금지 설정 토글
                         >
                           {/* 개별 금지된 칸일 경우 ✕ 블록 마크 추가 */}
-                          {isForbidden && <div className="forbidden-block">✕</div>}
+                          {requiredCellCourses.length > 0 && (
+                            <div className="tetris-required-course-list">
+                              {requiredCellCourses.map((courseBlock) => (
+                                <div
+                                  key={`${key}-${courseBlock.courseName}-${courseBlock.courseIndex}`}
+                                  className="subject-block tetris-required-course-block"
+                                  title={`${courseBlock.courseName}${courseBlock.professor ? `\n${courseBlock.professor}` : ''}${courseBlock.timeAndPlace ? `\n${courseBlock.timeAndPlace}` : ''}`}
+                                  style={{
+                                    backgroundColor: REQUIRED_COURSE_COLORS[courseBlock.courseIndex % REQUIRED_COURSE_COLORS.length],
+                                  }}
+                                >
+                                  <span className="subject-name">{courseBlock.courseName}</span>
+                                  <span className="subject-room">{courseBlock.professor || '필수 과목'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {isForbidden && requiredCellCourses.length === 0 && <div className="forbidden-block">✕</div>}
                         </div>
                       )
                     })}
@@ -512,7 +955,7 @@ const Tetris = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div className="panel-title" style={{ margin: 0 }}>📚 개설 과목 조회</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 'bold' }}>
-                  검색 결과: {filteredCourses.length}건
+                  검색 결과: {filteredCourses.length} / 전체 {dbCourses.length}건
                 </div>
               </div>
               
@@ -538,7 +981,7 @@ const Tetris = () => {
                       flexShrink: 0
                     }}
                   >
-                    {type}
+                    {getCourseTypeButtonLabel(type)}
                   </button>
                 ))}
               </div>
@@ -609,11 +1052,12 @@ const Tetris = () => {
                       </div>
                       {/* 과목 추가 상세 정보 (개설 학과/부서, 분반, 담당교수명, 수업 시간 및 장소) */}
                       <div style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span>🔢 {getCourseCode(course) || '과목코드 없음'}</span>
                         <span>🏢 {course['부서'] || course['단과대학'] || '소속 미정'} 
                               {course['분반코드'] ? ` [${course['분반코드']}분반]` : ''}
                         </span>
                         <span>👤 {course['교수명'] || '미정'}</span>
-                        <span>🕒 {course['수업시간및장소'] || '시간/장소 미정'}</span>
+                        <span>🕒 {getCourseTimeAndPlace(course) || '시간/장소 미정'}</span>
                       </div>
                     </div>
                   ))
@@ -644,4 +1088,3 @@ const Tetris = () => {
 }
 
 export default Tetris
-
