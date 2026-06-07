@@ -674,12 +674,16 @@ code {
 
 .timetable-grid {
   display: grid;
-  grid-template-columns: 56px repeat(5, 1fr);
+  grid-template-columns: 64px repeat(7, 1fr);
   border-collapse: collapse;
 }
 
 .timetable-grid .header-cell {
-  padding: var(--space-3) var(--space-2);
+  height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   font-family: var(--font-display);
   font-size: 0.87rem;
   font-weight: 600;
@@ -690,7 +694,11 @@ code {
 }
 
 .timetable-grid .time-cell {
-  padding: var(--space-3) var(--space-2);
+  height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   font-family: var(--font-code);
   font-size: 0.73rem;
   color: var(--color-neutral);
@@ -701,10 +709,10 @@ code {
 }
 
 .timetable-grid .data-cell {
+  height: 60px;
   padding: 0;
   border-bottom: 1px solid var(--color-border);
   border-right: 1px solid var(--color-border);
-  min-height: 48px;
   position: relative;
 }
 
