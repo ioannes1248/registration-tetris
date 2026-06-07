@@ -2,6 +2,19 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppHeader from '../components/AppHeader'
 import { supabase } from '../supabaseClient'
+import {
+  createCourseByNameMap,
+  generateTimetableSchedules,
+  getCourseCode,
+  getCourseDepartment,
+  getCourseName,
+  getCourseProfessor,
+  getCourseScheduleCells,
+  getCourseTimeAndPlace,
+  getCourseType,
+  getRequiredCourseConflict,
+  normalizeDepartmentName,
+} from '../timetableGenerator'
 import { fetchUserDepartmentProfile } from '../userDepartmentProfile'
 import './Tetris.css'
 
@@ -127,32 +140,6 @@ const COURSE_TYPES = [
 
 const EMPTY_DEPARTMENT_PROFILE = { majorDepartment: '', minorDepartment: '' }
 
-const normalizeDepartmentName = (value) => {
-  if (!value) return ''
-  return String(value).trim()
-}
-
-const getCourseDepartment = (course) => normalizeDepartmentName(course?.['부서'] || course?.department)
-const getCourseType = (course) => normalizeDepartmentName(course?.['이수구분'] || course?.course_type)
-const getCourseName = (course) => normalizeDepartmentName(course?.['교과목명'] || course?.course_name)
-const getCourseCode = (course) => normalizeDepartmentName(
-  course?.['과목코드'] ||
-  course?.['교과목코드'] ||
-  course?.['학수번호'] ||
-  course?.course_code
-)
-const getCourseTime = (course) => normalizeDepartmentName(course?.['수업시간'] || course?.class_time)
-const getCoursePlace = (course) => normalizeDepartmentName(course?.['수업장소'] || course?.class_place)
-const getCourseTimeAndPlace = (course) => {
-  const time = getCourseTime(course)
-  const place = getCoursePlace(course)
-
-  if (time && place) return `${time} / ${place}`
-  return time || place || ''
-}
-const getCourseScheduleCode = (course) => course?.['수업시간코드'] ?? course?.time_code ?? course?.class_time_code
-const getCourseProfessor = (course) => normalizeDepartmentName(course?.['교수명'] || course?.professor)
-
 const COURSE_LIST_TYPES = {
   preferred: 'preferred',
   required: 'required',
@@ -166,43 +153,6 @@ const REQUIRED_COURSE_COLORS = [
   '#10b981',
   '#ef4444',
 ]
-
-const parseCourseScheduleCodes = (codeValue) => {
-  const seen = new Set()
-  const scheduleCells = []
-
-  const collectCodes = (value) => {
-    if (value === null || value === undefined || value === '') return
-
-    if (Array.isArray(value)) {
-      value.forEach(collectCodes)
-      return
-    }
-
-    if (typeof value === 'object') {
-      Object.values(value).forEach(collectCodes)
-      return
-    }
-
-    const codes = String(value).match(/\d{3}/g) || []
-
-    codes.forEach((codeText) => {
-      const code = Number(codeText)
-      const dayNumber = Math.floor(code / 100)
-      const period = code % 100
-      const day = DAYS[dayNumber - 1]
-      const key = `${day}-${period}`
-
-      if (!day || period < 1 || period > TIMES.length || seen.has(key)) return
-
-      seen.add(key)
-      scheduleCells.push({ day, period })
-    })
-  }
-
-  collectCodes(codeValue)
-  return scheduleCells
-}
 
 const fetchAllCourses = async () => {
   const courses = []
@@ -254,6 +204,9 @@ const Tetris = () => {
   const [requiredCourses, setRequiredCourses] = useState([]) // 등록된 필수 과목명 배열
   const [draggedCourseTag, setDraggedCourseTag] = useState(null) // 선호/필수 과목 간 이동 중인 태그 정보
   const [scheduleConflictAlert, setScheduleConflictAlert] = useState(null) // 필수 과목 시간 충돌 알림 정보
+  const [generatedSchedules, setGeneratedSchedules] = useState([]) // 자동 생성된 시간표 후보 목록
+  const [selectedGeneratedScheduleId, setSelectedGeneratedScheduleId] = useState(null) // 중앙 시간표에 표시 중인 자동 생성 후보 ID
+  const [generationMessage, setGenerationMessage] = useState('') // 시간표 자동 생성 결과 안내 메시지
   const [forbiddenCells, setForbiddenCells] = useState(new Set()) // 시간표 그리드 상에서 개별 클릭하여 금지한 셀 세트 ("행번호-열번호" 포맷)
 
   // --- DB(Supabase) 데이터 및 필터링 관련 State ---
@@ -364,54 +317,45 @@ const Tetris = () => {
     await supabase.auth.signOut()
   }
 
-  const courseByName = useMemo(() => {
-    const map = new Map()
-
-    dbCourses.forEach((course) => {
-      const courseName = getCourseName(course)
-      if (!courseName) return
-
-      const existingCourse = map.get(courseName)
-      if (!existingCourse || (!getCourseScheduleCode(existingCourse) && getCourseScheduleCode(course))) {
-        map.set(courseName, course)
-      }
-    })
-
-    return map
-  }, [dbCourses])
+  const courseByName = useMemo(() => createCourseByNameMap(dbCourses), [dbCourses])
 
   const getRequiredCourseScheduleCells = useCallback((courseName) => {
     const matchedCourse = courseByName.get(courseName)
-    return parseCourseScheduleCodes(getCourseScheduleCode(matchedCourse))
+    return getCourseScheduleCells(matchedCourse, DAYS, TIMES.length)
   }, [courseByName])
 
   const findRequiredCourseConflict = useCallback((courseName) => {
-    const nextCells = getRequiredCourseScheduleCells(courseName)
-    if (nextCells.length === 0) return null
+    return getRequiredCourseConflict({
+      courseName,
+      requiredCourses,
+      courseByName,
+      days: DAYS,
+      periodCount: TIMES.length,
+    })
+  }, [courseByName, requiredCourses])
 
-    const nextCellKeys = new Set(nextCells.map(({ day, period }) => `${day}-${period}`))
-    const conflicts = []
+  const handleGenerateSchedules = () => {
+    setGenerationMessage('')
+    setGeneratedSchedules([])
+    setSelectedGeneratedScheduleId(null)
 
-    requiredCourses.forEach((existingCourseName) => {
-      if (existingCourseName === courseName) return
-
-      getRequiredCourseScheduleCells(existingCourseName).forEach(({ day, period }) => {
-        if (nextCellKeys.has(`${day}-${period}`)) {
-          conflicts.push({
-            courseName: existingCourseName,
-            timeLabel: `${day}요일 ${period}교시`,
-          })
-        }
-      })
+    const { schedules, message } = generateTimetableSchedules({
+      dbCourses,
+      courseByName,
+      requiredCourses,
+      preferredCourses,
+      minCredits,
+      maxCredits,
+      freeDays,
+      excludedPeriods,
+      forbiddenCells,
+      days: DAYS,
+      periodCount: TIMES.length,
     })
 
-    if (conflicts.length === 0) return null
-
-    return {
-      courseName,
-      conflicts,
-    }
-  }, [getRequiredCourseScheduleCells, requiredCourses])
+    setGeneratedSchedules(schedules)
+    setGenerationMessage(message)
+  }
 
   // --- 시간표 설정 관련 조작 이벤트 핸들러 ---
   
@@ -621,15 +565,29 @@ const Tetris = () => {
     return isTypeMatch && isDeptMatch && (matchName || matchProf || matchCode)
   }), [dbCourses, matchCourseType, searchTerm, selectedDept, selectedType])
 
-  const requiredCourseBlocksByCell = useMemo(() => {
+  const selectedGeneratedSchedule = useMemo(() => (
+    generatedSchedules.find((schedule) => schedule.id === selectedGeneratedScheduleId) || null
+  ), [generatedSchedules, selectedGeneratedScheduleId])
+
+  const timetableCourseBlocksByCell = useMemo(() => {
     const blocksByCell = new Map()
 
-    requiredCourses.forEach((courseName, courseIndex) => {
-      const matchedCourse = courseByName.get(courseName)
-      const timeAndPlace = getCourseTimeAndPlace(matchedCourse)
-      const scheduleCells = getRequiredCourseScheduleCells(courseName)
+    const entries = selectedGeneratedSchedule
+      ? selectedGeneratedSchedule.entries
+      : requiredCourses.map((courseName) => {
+        const matchedCourse = courseByName.get(courseName)
+        return {
+          course: matchedCourse,
+          courseName,
+          professor: getCourseProfessor(matchedCourse),
+          timeAndPlace: getCourseTimeAndPlace(matchedCourse),
+          scheduleCells: getRequiredCourseScheduleCells(courseName),
+          source: '필수',
+        }
+      })
 
-      scheduleCells.forEach(({ day, period }) => {
+    entries.forEach((entry, courseIndex) => {
+      entry.scheduleCells.forEach(({ day, period }) => {
         const rowIdx = period - 1
         const colIdx = DAYS.indexOf(day)
         if (rowIdx < 0 || rowIdx >= TIMES.length || colIdx < 0) return
@@ -639,16 +597,17 @@ const Tetris = () => {
 
         cellBlocks.push({
           courseIndex,
-          courseName,
-          professor: getCourseProfessor(matchedCourse),
-          timeAndPlace,
+          courseName: entry.courseName,
+          professor: entry.professor || getCourseProfessor(entry.course),
+          source: entry.source,
+          timeAndPlace: entry.timeAndPlace || getCourseTimeAndPlace(entry.course),
         })
         blocksByCell.set(cellKey, cellBlocks)
       })
     })
 
     return blocksByCell
-  }, [courseByName, getRequiredCourseScheduleCells, requiredCourses])
+  }, [courseByName, getRequiredCourseScheduleCells, requiredCourses, selectedGeneratedSchedule])
 
   // --- 화면 데이터 로딩 중 뷰(View) ---
   if (loading) {
@@ -866,7 +825,7 @@ const Tetris = () => {
               </div>
 
               {/* 조합 생성 알고리즘 실행 버튼 */}
-              <button className="btn btn-primary btn-md tetris-full-button tetris-generate-button">
+              <button className="btn btn-primary btn-md tetris-full-button tetris-generate-button" onClick={handleGenerateSchedules}>
                 시간표 자동 생성
               </button>
             </div>
@@ -882,6 +841,11 @@ const Tetris = () => {
                   )}
                   {requiredCourses.length > 0 && (
                     <span className="chip chip-active">필수 {requiredCourses.length}과목</span>
+                  )}
+                  {selectedGeneratedSchedule && (
+                    <span className="chip chip-success">
+                      후보 {generatedSchedules.findIndex((schedule) => schedule.id === selectedGeneratedSchedule.id) + 1}
+                    </span>
                   )}
                   <span className="chip tetris-hint-chip">클릭하여 금지 시간 설정</span>
                 </div>
@@ -915,7 +879,7 @@ const Tetris = () => {
                       const key = `${rowIdx}-${colIdx}`
                       const isForbidden = forbiddenCells.has(key)       // 개별 금지 지정 여부
                       const isFreeDay = freeDays.includes(DAYS[colIdx]) // 해당 요일 공강 지정 여부
-                      const requiredCellCourses = requiredCourseBlocksByCell.get(key) || []
+                      const timetableCellCourses = timetableCourseBlocksByCell.get(key) || []
                       return (
                         <div
                           // 금지되었거나 공강인 경우 특수 클래스를 주어 배경색을 칠함
@@ -924,24 +888,24 @@ const Tetris = () => {
                           onClick={() => toggleForbiddenCell(rowIdx, colIdx)} // 클릭하면 금지 설정 토글
                         >
                           {/* 개별 금지된 칸일 경우 ✕ 블록 마크 추가 */}
-                          {requiredCellCourses.length > 0 && (
+                          {timetableCellCourses.length > 0 && (
                             <div className="tetris-required-course-list">
-                              {requiredCellCourses.map((courseBlock) => (
+                              {timetableCellCourses.map((courseBlock) => (
                                 <div
                                   key={`${key}-${courseBlock.courseName}-${courseBlock.courseIndex}`}
                                   className="subject-block tetris-required-course-block"
-                                  title={`${courseBlock.courseName}${courseBlock.professor ? `\n${courseBlock.professor}` : ''}${courseBlock.timeAndPlace ? `\n${courseBlock.timeAndPlace}` : ''}`}
+                                  title={`${courseBlock.courseName}${courseBlock.source ? `\n${courseBlock.source}` : ''}${courseBlock.professor ? `\n${courseBlock.professor}` : ''}${courseBlock.timeAndPlace ? `\n${courseBlock.timeAndPlace}` : ''}`}
                                   style={{
                                     backgroundColor: REQUIRED_COURSE_COLORS[courseBlock.courseIndex % REQUIRED_COURSE_COLORS.length],
                                   }}
                                 >
                                   <span className="subject-name">{courseBlock.courseName}</span>
-                                  <span className="subject-room">{courseBlock.professor || '필수 과목'}</span>
+                                  <span className="subject-room">{courseBlock.source || courseBlock.professor || '과목'}</span>
                                 </div>
                               ))}
                             </div>
                           )}
-                          {isForbidden && requiredCellCourses.length === 0 && <div className="forbidden-block">✕</div>}
+                          {isForbidden && timetableCellCourses.length === 0 && <div className="forbidden-block">✕</div>}
                         </div>
                       )
                     })}
@@ -1071,14 +1035,75 @@ const Tetris = () => {
           <div className={`tetris-result-section ${mounted ? 'animate-in delay-3' : 'tetris-hidden'}`} style={{ marginTop: '24px' }}>
             <div className="flex flex-between tetris-result-header">
               <h3>생성된 시간표 조합</h3>
+              {generationMessage && (
+                <span className={`chip ${generatedSchedules.length > 0 ? 'chip-success' : 'chip-error'}`}>
+                  {generationMessage}
+                </span>
+              )}
             </div>
-            <div className="tetris-empty-state">
-              <div className="text-center">
-                <p className="tetris-empty-icon">🧩</p>
-                <p className="tetris-empty-title">위의 조건을 설정한 뒤 "시간표 자동 생성" 버튼을 눌러주세요.</p>
-                <p className="tetris-empty-desc">가능한 시간표 조합이 여기에 카드 형태로 표시됩니다.</p>
+            {generatedSchedules.length > 0 ? (
+              <div className="tetris-generated-grid">
+                {generatedSchedules.map((schedule, scheduleIndex) => {
+                  const busyDays = new Set()
+                  schedule.entries.forEach((entry) => {
+                    entry.scheduleCells.forEach(({ day }) => {
+                      busyDays.add(day)
+                    })
+                  })
+                  const openDays = DAYS.slice(0, 5).filter((day) => !busyDays.has(day))
+                  const isSelectedSchedule = selectedGeneratedScheduleId === schedule.id
+
+                  return (
+                    <div
+                      className={`tetris-generated-card ${isSelectedSchedule ? 'tetris-generated-card-selected' : ''}`}
+                      key={schedule.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelectedSchedule}
+                      onClick={() => setSelectedGeneratedScheduleId(schedule.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setSelectedGeneratedScheduleId(schedule.id)
+                        }
+                      }}
+                    >
+                      <div className="tetris-generated-card-header">
+                        <strong>후보 {scheduleIndex + 1}</strong>
+                        <span>{schedule.totalCredits}학점</span>
+                      </div>
+                      <div className="tetris-generated-summary">
+                        <span>공강 {openDays.length > 0 ? openDays.join(', ') : '없음'}</span>
+                        <span>공강 사이 빈칸 {schedule.gapCount}</span>
+                      </div>
+                      <div className="tetris-generated-chip-list">
+                        {schedule.entries.map((entry) => {
+                          const sectionCode = entry.course?.['분반코드'] || entry.course?.section_code || ''
+                          const sectionLabel = sectionCode ? ` ${sectionCode}` : ''
+
+                          return (
+                            <span
+                              className="tetris-generated-course-chip"
+                              key={`${schedule.id}-${entry.courseCode || entry.courseName}-${sectionCode}`}
+                            >
+                              {entry.courseName}{sectionLabel}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            </div>
+            ) : (
+              <div className="tetris-empty-state">
+                <div className="text-center">
+                  <p className="tetris-empty-icon">🧩</p>
+                  <p className="tetris-empty-title">위의 조건을 설정한 뒤 "시간표 자동 생성" 버튼을 눌러주세요.</p>
+                  <p className="tetris-empty-desc">가능한 시간표 조합이 여기에 카드 형태로 표시됩니다.</p>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>

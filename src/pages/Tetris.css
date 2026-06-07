@@ -330,6 +330,88 @@
   margin-bottom: var(--space-5);
 }
 
+.tetris-generated-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.tetris-generated-card {
+  min-width: 0;
+  min-height: 168px;
+  padding: var(--space-4);
+  border: 1.5px solid #111827;
+  border-radius: 8px;
+  background-color: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.tetris-generated-card:hover,
+.tetris-generated-card:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 8px 18px rgba(48, 155, 159, 0.12);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.tetris-generated-card-selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18), 0 8px 18px rgba(37, 99, 235, 0.12);
+}
+
+.tetris-generated-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.tetris-generated-card-header strong {
+  color: var(--color-text-primary);
+  font-size: 0.88rem;
+}
+
+.tetris-generated-card-header span {
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+}
+
+.tetris-generated-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: var(--space-3);
+  color: #94a3b8;
+  font-size: 0.74rem;
+}
+
+.tetris-generated-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.tetris-generated-course-chip {
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: #eff6ff;
+  color: #475569;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1280px) {
+  .tetris-generated-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
 .tetris-empty-state {
   display: flex;
   align-items: center;
