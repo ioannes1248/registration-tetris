@@ -31,10 +31,12 @@ export default function Login() {
   const [email, setEmail] = useState('')
 
   // 흐름도 1: URL 파라미터 파싱
+  // 일반적으로는 ?쿼리스트링(window.location.search)에서 읽지만, HashRouter 특성상
+  // 파라미터가 해시 뒤쪽(#/login?token=...)에 붙는 경우도 있어 그 경우까지 함께 처리합니다.
   const getSearchParams = () => {
     let search = window.location.search
     if (!search && window.location.hash.includes('?')) {
-      search = '?' + window.location.hash.split('?')[1]
+      search = '?' + window.location.hash.split('?')[1] // 해시 안의 쿼리 부분을 추출
     }
     return new URLSearchParams(search)
   }
@@ -55,19 +57,24 @@ export default function Login() {
   }, [])
 
   // 흐름도 2: 각종 인증 과정 (토큰, 세션 감지) 및 로그인 뷰 자동 스킵 훅
+  // 이 화면은 '비밀번호 없이 메일 링크로 로그인(매직 링크/OTP)'을 사용합니다.
+  // 사용자가 메일 속 링크를 누르면 토큰이 담긴 채 이 페이지로 돌아오는데, 그 토큰의
+  // 형태가 여러 가지(access_token, token_hash 등)라 각각을 아래에서 나눠 처리합니다.
   useEffect(() => {
     const params = getSearchParams()
-    const token_hash = params.get('token_hash')
-    const type = params.get('type')
-    
-    const access_token = params.get('access_token')
+    const token_hash = params.get('token_hash') // 방식 A: 검증용 해시 토큰
+    const type = params.get('type')             // 인증 종류(email 등)
+
+    const access_token = params.get('access_token')   // 방식 B: 액세스/리프레시 토큰 쌍
     const refresh_token = params.get('refresh_token')
-    
+
+    // 주소창에 노출된 토큰 파라미터를 즉시 제거(보안 + 새로고침 시 중복 처리 방지)
     if (window.location.search || window.location.href.includes('?')) {
-      const cleanHash = window.location.hash.split('?')[0] 
+      const cleanHash = window.location.hash.split('?')[0]
       window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
     }
-    
+
+    // (방식 B) 토큰 쌍이 있으면 세션을 직접 설정하고 메인으로 이동
     if (access_token && refresh_token) {
       supabase.auth.setSession({ access_token, refresh_token }).then(({ data, error }) => {
         if (!error && data?.session) {
@@ -75,11 +82,12 @@ export default function Login() {
           window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
           navigate('/main', { replace: true })
         } else {
-          setAuthError(error ? error.message : '세션 설정 실패')
+          setAuthError(error ? error.message : '세션 설정 실패') // 실패 시 에러 뷰로
         }
       })
     }
 
+    // (방식 A) token_hash가 있으면 verifyOtp로 검증 후 세션을 생성하고 메인으로 이동
     if (token_hash) {
       supabase.auth
         .verifyOtp({
@@ -92,18 +100,20 @@ export default function Login() {
           } else {
             const cleanHash = window.location.hash.split('?')[0]
             window.history.replaceState({}, document.title, window.location.pathname + cleanHash)
-            
+
             navigate('/main', { replace: true })
           }
         })
     }
 
+    // 이미 로그인된 사용자가 이 페이지에 들어오면 곧장 메인으로 보냄(로그인 화면 스킵)
     supabase.auth.getSession().then(({ data }) => {
       if (data && data.session && data.session.user) {
-        navigate('/main', { replace: true }) 
+        navigate('/main', { replace: true })
       }
     })
 
+    // 위 비동기 인증이 완료되는 순간을 실시간으로 잡아 메인으로 이동(이벤트 기반 안전망)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -114,36 +124,41 @@ export default function Login() {
       }
     })
 
+    // 컴포넌트 소멸 시 감시자 해제
     return () => subscription.unsubscribe()
   }, [navigate])
 
   // 흐름도 3: 로그인 폼 제출 시 매직 링크 발송 처리 이벤트
   const handleLogin = async (event) => {
-    event.preventDefault()
-    setLoginFormError('') 
-    
+    event.preventDefault() // 폼 기본 제출(새로고침) 막기
+    setLoginFormError('')
+
+    // 학교 이메일 도메인만 허용
     if (!email.endsWith('@cku.ac.kr')) {
       setLoginFormError('가톨릭관동대학교 이메일(@cku.ac.kr)만 사용할 수 있습니다.')
       return
     }
 
-    setLoading(true) 
-    
+    setLoading(true)
+
+    // 입력한 이메일로 로그인 링크(OTP) 발송 요청.
+    // emailRedirectTo: 메일 링크 클릭 후 돌아올 주소(#/login)를 현재 도메인 기준으로 지정
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: window.location.origin + window.location.pathname + '#/login',
       },
     })
-    
+
     if (error) {
-      setLoginFormError(error.error_description || error.message) 
+      setLoginFormError(error.error_description || error.message)
     } else {
-      setLinkSent(true) 
+      setLinkSent(true) // 발송 성공 → '메일 확인' 뷰로 전환
     }
     setLoading(false)
   }
 
+  // 게스트 로그인(개발용): 실제 인증 없이 sessionStorage 플래그만 세우고 메인으로 이동
   const handleGuestLogin = () => {
     window.sessionStorage.setItem(GUEST_MODE_KEY, 'true')
     navigate('/main', { replace: true })

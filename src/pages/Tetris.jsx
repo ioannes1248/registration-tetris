@@ -130,21 +130,25 @@ const EXCLUDED_PERIODS = [
 ]
 
 // 이수구분 카테고리 (우측 개설 과목 조회 필터링에 사용)
+// 화면 표기는 '복수/부전공' 한 칸이지만, DB에는 '복수전공'·'부전공'으로 따로 들어와 둘 다 매칭합니다.
 const SECONDARY_MAJOR_TYPE = '복수/부전공'
 const SECONDARY_MAJOR_DB_TYPES = ['복수전공', '부전공']
 
+// 우측 패널 상단의 대분류 필터 버튼 목록 ('전체'는 필터 해제)
 const COURSE_TYPES = [
-  '전체', '전공', '직무전공', '소단위전공', '교양필수', '교양선택', 
+  '전체', '전공', '직무전공', '소단위전공', '교양필수', '교양선택',
   SECONDARY_MAJOR_TYPE, '연계전공', '교직', 'ROTC/현장실습', '일반선택', '사이버'
 ]
 
 const EMPTY_DEPARTMENT_PROFILE = { majorDepartment: '', minorDepartment: '' }
 
+// 좌측 패널의 두 과목 목록 종류 식별자 (드래그&드롭으로 서로 옮길 때 출발/도착 구분용)
 const COURSE_LIST_TYPES = {
-  preferred: 'preferred',
-  required: 'required',
+  preferred: 'preferred', // 선호 과목
+  required: 'required',   // 필수 과목
 }
 
+// 시간표 그리드에서 과목 블록을 칠할 색상 팔레트 (과목 순번을 색 개수로 나눈 나머지로 순환 사용)
 const REQUIRED_COURSE_COLORS = [
   'var(--color-subject-3)',
   '#3b82f6',
@@ -154,15 +158,21 @@ const REQUIRED_COURSE_COLORS = [
   '#ef4444',
 ]
 
+/**
+ * fetchAllCourses: 과목 테이블의 '전체' 행을 페이징으로 끝까지 가져옵니다.
+ *
+ * Supabase는 단일 요청당 반환 행 수에 제한이 있어, .range(from, from+size-1)로 1000개씩
+ * 끊어 받아 합칩니다. 받은 개수가 한 페이지 크기보다 작으면 마지막 페이지이므로 종료합니다.
+ */
 const fetchAllCourses = async () => {
   const courses = []
-  let from = 0
+  let from = 0 // 페이지 시작 오프셋
 
   while (true) {
     const { data, error } = await supabase
       .from(COURSES_TABLE)
       .select('*')
-      .range(from, from + COURSES_PAGE_SIZE - 1)
+      .range(from, from + COURSES_PAGE_SIZE - 1) // 이번 페이지 구간
 
     if (error) {
       throw error
@@ -170,11 +180,12 @@ const fetchAllCourses = async () => {
 
     courses.push(...(data || []))
 
+    // 더 받을 데이터가 없으면 종료
     if (!data || data.length < COURSES_PAGE_SIZE) {
       break
     }
 
-    from += COURSES_PAGE_SIZE
+    from += COURSES_PAGE_SIZE // 다음 페이지로
   }
 
   return courses
@@ -317,13 +328,16 @@ const Tetris = () => {
     await supabase.auth.signOut()
   }
 
+  // '교과목명 → 과목 객체' 조회 맵 (과목명만으로 원본 데이터를 빠르게 찾기 위함)
   const courseByName = useMemo(() => createCourseByNameMap(dbCourses), [dbCourses])
 
+  // 과목명으로 그 과목이 차지하는 시간표 칸 목록을 구하는 헬퍼
   const getRequiredCourseScheduleCells = useCallback((courseName) => {
     const matchedCourse = courseByName.get(courseName)
     return getCourseScheduleCells(matchedCourse, DAYS, TIMES.length)
   }, [courseByName])
 
+  // 어떤 과목을 필수 과목에 넣었을 때 기존 필수 과목들과 시간이 겹치는지 검사 (겹치면 충돌 정보, 아니면 null)
   const findRequiredCourseConflict = useCallback((courseName) => {
     return getRequiredCourseConflict({
       courseName,
@@ -334,6 +348,11 @@ const Tetris = () => {
     })
   }, [courseByName, requiredCourses])
 
+  /**
+   * '시간표 자동 생성' 버튼 핸들러.
+   * 이전 결과를 초기화한 뒤, 현재 설정된 모든 조건을 알고리즘 모듈(generateTimetableSchedules)에
+   * 넘겨 후보 목록과 안내 메시지를 받아 상태에 저장합니다.
+   */
   const handleGenerateSchedules = () => {
     setGenerationMessage('')
     setGeneratedSchedules([])
@@ -418,8 +437,14 @@ const Tetris = () => {
     }
   }
 
+  /**
+   * moveCourseTag: 과목 태그를 '선호 ↔ 필수' 목록 사이로 옮깁니다. (드래그&드롭의 실제 처리 로직)
+   *   - 선호로 옮길 때: 필수에서 빼고 선호에 추가 (선호는 시간 충돌을 따지지 않음)
+   *   - 필수로 옮길 때: 먼저 기존 필수와 시간 충돌을 검사하여 겹치면 경고만 띄우고 중단,
+   *                     안 겹치면 선호에서 빼고 필수에 추가
+   */
   const moveCourseTag = (courseName, sourceList, targetList) => {
-    if (!courseName || sourceList === targetList) return
+    if (!courseName || sourceList === targetList) return // 빈 값이거나 제자리면 무시
 
     if (targetList === COURSE_LIST_TYPES.preferred) {
       setRequiredCourses(prev => prev.filter(course => course !== courseName))
@@ -428,9 +453,10 @@ const Tetris = () => {
       return
     }
 
+    // 필수로 옮기는 경우: 시간 충돌 검사
     const conflict = findRequiredCourseConflict(courseName)
     if (conflict) {
-      setScheduleConflictAlert(conflict)
+      setScheduleConflictAlert(conflict) // 충돌하면 추가하지 않고 경고 표시
       return
     }
 
@@ -439,6 +465,8 @@ const Tetris = () => {
     setScheduleConflictAlert(null)
   }
 
+  // 드래그 시작: 어떤 과목을 어느 목록에서 끌기 시작했는지 정보를 state와 dataTransfer 양쪽에 기록
+  // (state는 같은 화면 내 빠른 참조용, dataTransfer는 브라우저 표준 드래그 데이터로 폴백용)
   const handleCourseTagDragStart = (event, courseName, sourceList) => {
     const payload = { courseName, sourceList }
     setDraggedCourseTag(payload)
@@ -447,11 +475,13 @@ const Tetris = () => {
     event.dataTransfer.setData('text/plain', courseName)
   }
 
+  // 드롭 영역 위로 끌고 올 때: 기본 동작을 막아야 drop 이벤트가 발생함('이동' 커서 표시)
   const handleCourseTagDragOver = (event) => {
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
   }
 
+  // 드롭: state의 드래그 정보를 우선 쓰고, 없으면 dataTransfer의 JSON을 파싱해 이동을 수행
   const handleCourseTagDrop = (event, targetList) => {
     event.preventDefault()
 
@@ -466,9 +496,10 @@ const Tetris = () => {
     }
 
     moveCourseTag(payload?.courseName, payload?.sourceList, targetList)
-    setDraggedCourseTag(null)
+    setDraggedCourseTag(null) // 드래그 상태 초기화
   }
 
+  // 드래그 종료(드롭 성공 여부와 무관): 진행 중 표시 상태 정리
   const handleCourseTagDragEnd = () => {
     setDraggedCourseTag(null)
   }
@@ -565,13 +596,24 @@ const Tetris = () => {
     return isTypeMatch && isDeptMatch && (matchName || matchProf || matchCode)
   }), [dbCourses, matchCourseType, searchTerm, selectedDept, selectedType])
 
+  // 하단 후보 카드에서 클릭해 '현재 보고 있는' 자동 생성 시간표 (없으면 null)
   const selectedGeneratedSchedule = useMemo(() => (
     generatedSchedules.find((schedule) => schedule.id === selectedGeneratedScheduleId) || null
   ), [generatedSchedules, selectedGeneratedScheduleId])
 
+  /**
+   * timetableCourseBlocksByCell: 중앙 그리드에 그릴 과목 블록을 '셀 좌표별'로 묶은 Map입니다.
+   *
+   * 키는 '행번호-열번호'(행=교시-1, 열=요일 인덱스), 값은 그 칸에 들어갈 과목 블록 배열입니다.
+   * 표시할 내용은 상황에 따라 다릅니다:
+   *   - 자동 생성 후보를 선택한 상태 → 그 후보의 과목 항목들(entries)
+   *   - 선택 전(기본) 상태        → 사용자가 넣은 필수 과목들
+   * 각 항목의 칸들을 순회하며 화면 좌표로 변환해 해당 셀에 블록 정보를 쌓아 둡니다.
+   */
   const timetableCourseBlocksByCell = useMemo(() => {
     const blocksByCell = new Map()
 
+    // 표시 대상 선택: 후보가 선택돼 있으면 그 후보, 아니면 필수 과목들을 항목 형태로 가공
     const entries = selectedGeneratedSchedule
       ? selectedGeneratedSchedule.entries
       : requiredCourses.map((courseName) => {
@@ -586,11 +628,12 @@ const Tetris = () => {
         }
       })
 
+    // 각 과목(courseIndex는 색상 선택에도 쓰임)의 모든 칸을 화면 좌표로 변환해 Map에 누적
     entries.forEach((entry, courseIndex) => {
       entry.scheduleCells.forEach(({ day, period }) => {
-        const rowIdx = period - 1
-        const colIdx = DAYS.indexOf(day)
-        if (rowIdx < 0 || rowIdx >= TIMES.length || colIdx < 0) return
+        const rowIdx = period - 1        // 교시 → 행 인덱스
+        const colIdx = DAYS.indexOf(day) // 요일 → 열 인덱스
+        if (rowIdx < 0 || rowIdx >= TIMES.length || colIdx < 0) return // 그리드 밖이면 무시
 
         const cellKey = `${rowIdx}-${colIdx}`
         const cellBlocks = blocksByCell.get(cellKey) || []
@@ -887,7 +930,7 @@ const Tetris = () => {
                           key={key}
                           onClick={() => toggleForbiddenCell(rowIdx, colIdx)} // 클릭하면 금지 설정 토글
                         >
-                          {/* 개별 금지된 칸일 경우 ✕ 블록 마크 추가 */}
+                          {/* 이 칸에 배치된 과목이 있으면 색상 블록으로 표시 (필수/자동생성 과목) */}
                           {timetableCellCourses.length > 0 && (
                             <div className="tetris-required-course-list">
                               {timetableCellCourses.map((courseBlock) => (
@@ -905,6 +948,7 @@ const Tetris = () => {
                               ))}
                             </div>
                           )}
+                          {/* 과목이 없는 금지 칸이면 ✕ 마크 표시 */}
                           {isForbidden && timetableCellCourses.length === 0 && <div className="forbidden-block">✕</div>}
                         </div>
                       )
@@ -1044,6 +1088,8 @@ const Tetris = () => {
             {generatedSchedules.length > 0 ? (
               <div className="tetris-generated-grid">
                 {generatedSchedules.map((schedule, scheduleIndex) => {
+                  // 이 후보에서 수업이 있는 요일(busyDays)을 모은 뒤, 평일(월~금) 중
+                  // 수업이 하나도 없는 날을 '공강 요일(openDays)'로 계산해 카드에 표시
                   const busyDays = new Set()
                   schedule.entries.forEach((entry) => {
                     entry.scheduleCells.forEach(({ day }) => {
@@ -1051,7 +1097,7 @@ const Tetris = () => {
                     })
                   })
                   const openDays = DAYS.slice(0, 5).filter((day) => !busyDays.has(day))
-                  const isSelectedSchedule = selectedGeneratedScheduleId === schedule.id
+                  const isSelectedSchedule = selectedGeneratedScheduleId === schedule.id // 현재 보고 있는 후보인지
 
                   return (
                     <div
