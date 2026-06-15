@@ -320,26 +320,6 @@ export const getRequiredCourseConflict = ({ courseName, requiredCourses, courseB
 }
 
 /**
- * violatesFixedTimeFilters: 과목이 사용자가 정한 '고정 금지 조건'을 어기는지 검사합니다.
- *
- * 다음 중 하나라도 걸리면 true(=배치 불가):
- *   · 공강 희망 요일(freeDays)에 수업이 있음
- *   · 제외 교시(excludedPeriods)에 수업이 있음
- *   · 그리드에서 직접 클릭해 막아 둔 금지 칸(forbiddenCells)에 걸림
- * 또한 수업 시간 정보 자체가 없는 과목(칸 0개)도 자동 배치에서 제외합니다.
- */
-const violatesFixedTimeFilters = ({ course, days, periodCount, freeDays, excludedPeriods, forbiddenCells }) => {
-  const scheduleCells = getCourseScheduleCells(course, days, periodCount)
-  if (scheduleCells.length === 0) return true
-
-  return scheduleCells.some(({ day, period }) => (
-    freeDays.includes(day) ||
-    excludedPeriods.includes(`${period}교시`) ||
-    forbiddenCells.has(getGridCellKey({ day, period }, days))
-  ))
-}
-
-/**
  * getScheduleGapScore: 시간표에 생기는 '수업 사이 빈 교시(공강 구멍)'의 총 개수를 셉니다.
  *
  * 요일별로 수업이 있는 교시들을 모아 정렬한 뒤, 연속한 두 수업 사이의 간격을 더합니다.
@@ -471,7 +451,6 @@ const canPlaceCourse = ({
   if (!courseName || scheduleCells.length === 0) return false
   if (selectedCourseNames.has(courseName)) return false
   if (currentCredits + credits > maxCredits) return false
-  if (violatesFixedTimeFilters({ course, days, periodCount, freeDays, excludedPeriods, forbiddenCells })) return false
   if (targetDaysOnly && targetDays?.size > 0 && scheduleCells.some(({ day }) => !targetDays.has(day))) return false
 
   // 마지막으로, 차지할 모든 칸이 비어 있어야(시간 충돌이 없어야) 배치 가능
@@ -783,21 +762,8 @@ export const generateTimetableSchedules = ({
 
   for (const courseName of requiredCourses) {
     const course = courseByName.get(courseName)
-    if (!course) {
-      return { schedules: [], message: `${courseName} 과목 정보를 찾지 못했습니다.` }
-    }
 
-    // 필수 과목이 공강/제외/금지 조건과 겹치면 애초에 시간표를 만들 수 없음
-    if (violatesFixedTimeFilters({ course, days, periodCount, freeDays, excludedPeriods, forbiddenCells })) {
-      return { schedules: [], message: `${courseName} 과목이 선택한 공강/제외 시간 조건과 겹칩니다.` }
-    }
 
-    // 필수 과목끼리 시간이 겹쳐도 불가능
-    const entry = createScheduleEntry(course, '필수', days, periodCount)
-    const hasConflict = entry.scheduleCells.some((cell) => baseCellKeys.has(getScheduleCellKey(cell)))
-    if (hasConflict) {
-      return { schedules: [], message: '필수 과목끼리 시간이 겹쳐 시간표를 생성할 수 없습니다.' }
-    }
 
     entry.scheduleCells.forEach((cell) => baseCellKeys.add(getScheduleCellKey(cell)))
     baseCourseNames.add(entry.courseName)
@@ -825,9 +791,7 @@ export const generateTimetableSchedules = ({
 
     return (
       predicate(course) &&
-      scheduleCells.length > 0 &&
-      !baseCourseNames.has(getCourseName(course)) &&
-      !violatesFixedTimeFilters({ course, days, periodCount, freeDays, excludedPeriods, forbiddenCells })
+      scheduleCells.length > 0
     )
   })
 
